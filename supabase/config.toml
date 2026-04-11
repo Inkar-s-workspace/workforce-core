@@ -1,0 +1,4 @@
+project_id = "cfyjdhzeiwkwuemoaisq"
+
+[functions.sync-biotime]
+verify_jwt = false
