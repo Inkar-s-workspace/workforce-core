@@ -1,146 +1,204 @@
 /* stylelint-disable */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ─── EDITORIAL PALETTE — TUNED TOWARD AMC BRAND ─────────────────────────── */
+/*
+   Direction: keep the lived-in editorial feel, but pull values back toward
+   the official brand book so AMC recognizes itself in the product.
+
+   ─ Background:  cool off-white, like newsprint
+   ─ Foreground:  AMC blue used as ink (a notch lighter than #324157 for
+                  comfortable reading at body sizes)
+   ─ Card lift:   real but quiet
+   ─ Red:         warmer than burgundy but quieter than fire-engine
+   ─ Yellow:      brand-true (DCAA05) for accent moments
+   ─ Subtle paper grain on body for lived-in feel
+*/
+
 @layer base {
   :root {
-    --background: 220 20% 97%;
-    --foreground: 220 30% 10%;
-    --card: 0 0% 100%;
-    --card-foreground: 220 30% 10%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 30% 10%;
-    --primary: 220 60% 20%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 220 15% 92%;
-    --secondary-foreground: 220 30% 20%;
-    --muted: 220 15% 94%;
-    --muted-foreground: 220 10% 50%;
-    --accent: 38 92% 50%;
-    --accent-foreground: 38 90% 10%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 98%;
-    --success: 152 60% 40%;
-    --success-foreground: 0 0% 98%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 38 90% 10%;
-    --border: 220 15% 90%;
-    --input: 220 15% 90%;
-    --ring: 220 60% 20%;
-    --radius: 0.625rem;
-    --sidebar-background: 220 60% 15%;
-    --sidebar-foreground: 220 15% 90%;
-    --sidebar-primary: 38 92% 50%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 220 50% 25%;
-    --sidebar-accent-foreground: 220 15% 90%;
-    --sidebar-border: 220 40% 25%;
-    --sidebar-ring: 38 92% 50%;
-    --chart-1: 220 60% 50%;
-    --chart-2: 152 60% 40%;
-    --chart-3: 38 92% 50%;
-    --chart-4: 0 72% 51%;
-    --chart-5: 280 60% 50%;
+    /* Surfaces — cool off-white inspired by AMC light blue */
+    --background:           220 22% 96%;     /* close to #F5F6F8 with a hair of warmth */
+    --foreground:           215 25% 25%;     /* close to #324157, slightly softer for body */
+    --card:                 0 0% 100%;
+    --card-foreground:      215 25% 25%;
+    --popover:              0 0% 100%;
+    --popover-foreground:   215 25% 25%;
+
+    /* Primary — AMC blue */
+    --primary:              215 27% 27%;     /* #324157 exactly */
+    --primary-foreground:   220 22% 96%;
+
+    /* Secondary — cool grey */
+    --secondary:            220 14% 91%;
+    --secondary-foreground: 215 25% 25%;
+
+    /* Muted */
+    --muted:                220 16% 93%;
+    --muted-foreground:     215 14% 44%;
+
+    /* Accent — AMC dark yellow at full strength */
+    --accent:               44 95% 44%;      /* #DCAA05 */
+    --accent-foreground:    215 27% 18%;
+
+    /* Destructive — warmer than the burgundy I had, but quieter than #BC0705 */
+    --destructive:          1 78% 42%;       /* sits between brand red and burgundy */
+    --destructive-foreground: 220 22% 96%;
+
+    /* Success — quiet forest green for "ok" states */
+    --success:              155 32% 34%;
+    --success-foreground:   220 22% 96%;
+
+    /* Warning — same yellow as accent */
+    --warning:              44 95% 44%;
+    --warning-foreground:   215 27% 18%;
+
+    /* Form + structure */
+    --border:               220 14% 86%;
+    --input:                220 14% 86%;
+    --ring:                 215 27% 30%;
+    --radius:               0.5rem;
+
+    /* Sidebar — AMC blue, slightly deeper than primary for separation */
+    --sidebar-background:               215 30% 19%;
+    --sidebar-foreground:               220 18% 86%;
+    --sidebar-primary:                  44 95% 50%;
+    --sidebar-primary-foreground:       215 30% 12%;
+    --sidebar-accent:                   215 27% 26%;
+    --sidebar-accent-foreground:        220 22% 92%;
+    --sidebar-border:                   215 22% 28%;
+    --sidebar-ring:                     44 95% 50%;
+
+    /* Charts */
+    --chart-1: 215 25% 30%;   /* AMC blue ink */
+    --chart-2: 44 90% 46%;    /* yellow */
+    --chart-3: 155 32% 34%;   /* green */
+    --chart-4: 1 78% 42%;     /* red */
+    --chart-5: 215 12% 56%;   /* slate */
   }
 
   .dark {
-    --background: 220 30% 8%;
-    --foreground: 220 15% 92%;
-    --card: 220 25% 12%;
-    --card-foreground: 220 15% 92%;
-    --popover: 220 25% 12%;
-    --popover-foreground: 220 15% 92%;
-    --primary: 38 92% 50%;
-    --primary-foreground: 220 30% 8%;
-    --secondary: 220 20% 18%;
-    --secondary-foreground: 220 15% 85%;
-    --muted: 220 20% 16%;
-    --muted-foreground: 220 10% 55%;
-    --accent: 38 92% 50%;
-    --accent-foreground: 220 30% 8%;
-    --destructive: 0 62% 45%;
-    --destructive-foreground: 0 0% 98%;
-    --success: 152 60% 40%;
-    --success-foreground: 0 0% 98%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 38 90% 10%;
-    --border: 220 20% 20%;
-    --input: 220 20% 20%;
-    --ring: 38 92% 50%;
-    --sidebar-background: 220 30% 6%;
-    --sidebar-foreground: 220 15% 85%;
-    --sidebar-primary: 38 92% 50%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 220 25% 14%;
-    --sidebar-accent-foreground: 220 15% 85%;
-    --sidebar-border: 220 20% 16%;
-    --sidebar-ring: 38 92% 50%;
+    --background:           215 28% 10%;
+    --foreground:           220 18% 88%;
+    --card:                 215 25% 13%;
+    --card-foreground:      220 18% 88%;
+    --popover:              215 25% 13%;
+    --popover-foreground:   220 18% 88%;
+    --primary:              44 90% 52%;
+    --primary-foreground:   215 28% 10%;
+    --secondary:            215 22% 18%;
+    --secondary-foreground: 220 18% 88%;
+    --muted:                215 22% 16%;
+    --muted-foreground:     215 12% 60%;
+    --accent:               44 90% 52%;
+    --accent-foreground:    215 28% 10%;
+    --destructive:          1 70% 52%;
+    --destructive-foreground: 220 18% 92%;
+    --success:              155 38% 44%;
+    --success-foreground:   220 18% 92%;
+    --warning:              44 90% 52%;
+    --warning-foreground:   215 28% 10%;
+    --border:               215 20% 22%;
+    --input:                215 20% 22%;
+    --ring:                 44 90% 52%;
+
+    --sidebar-background:               215 30% 7%;
+    --sidebar-foreground:               220 18% 84%;
+    --sidebar-primary:                  44 90% 52%;
+    --sidebar-primary-foreground:       215 28% 10%;
+    --sidebar-accent:                   215 25% 13%;
+    --sidebar-accent-foreground:        220 18% 90%;
+    --sidebar-border:                   215 20% 16%;
+    --sidebar-ring:                     44 90% 52%;
   }
 }
+
+/* ─── Typography ─────────────────────────────────────────────────────────── */
 
 @layer base {
   * { @apply border-border; }
-  body { @apply bg-background text-foreground font-sans antialiased; }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'League Spartan', system-ui, -apple-system, sans-serif;
+    font-weight: 400;
+    letter-spacing: -0.005em;
+
+    /* Paper grain — subtle, lived-in */
+    background-image:
+      url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.13 0 0 0 0 0.16 0 0 0 0 0.20 0 0 0 0.04 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 200px 200px;
+    background-attachment: fixed;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Poppins', system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.018em;
+  }
+
+  .font-mono, code, kbd, pre, samp {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+  }
 }
+
+/* ─── Utilities ──────────────────────────────────────────────────────────── */
 
 @layer utilities {
-  .stat-card {
-    background-color: hsl(var(--card));
-    border-radius: 0.75rem;
-    border: 1px solid hsl(var(--border));
-    padding: 1.25rem;
-    box-shadow: 0 1px 2px rgba(0,0,0,.05);
-    transition: box-shadow 0.15s;
-  }
-  .stat-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+  .font-display { font-family: 'Poppins', system-ui, sans-serif; font-weight: 700; }
+  .font-body    { font-family: 'League Spartan', system-ui, sans-serif; font-weight: 400; }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
 
-  .status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.125rem 0.625rem;
-    border-radius: 9999px;
-    font-size: 0.75rem;
-    font-weight: 500;
+  /* Hand-drawn-feeling section divider */
+  .rule-paper {
+    background: linear-gradient(
+      to right,
+      transparent 0%,
+      hsl(var(--border)) 8%,
+      hsl(var(--border)) 92%,
+      transparent 100%
+    );
+    height: 1px;
   }
-  .status-ok      { background: #d1fae5; color: #065f46; }
-  .status-warning { background: #fef3c7; color: #92400e; }
-  .status-danger  { background: #fee2e2; color: #991b1b; }
-
-  .dept-tab         { padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; transition: all 0.15s; cursor: pointer; }
-  .dept-tab-active  { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
-  .dept-tab-inactive { background: hsl(var(--secondary)); color: hsl(var(--secondary-foreground)); }
-  .dept-tab-inactive:hover { background: hsl(var(--secondary) / 0.8); }
 }
 
-/* ─── Mobile ─────────────────────────────────────────────────────────────── */
+/* ─── Mobile + accessibility ─────────────────────────────────────────────── */
+
 html, body { overflow-x: hidden; }
 * { -webkit-tap-highlight-color: transparent; }
 
 @media (max-width: 640px) {
   button, [role="button"] { min-height: 36px; }
-  .stat-card { padding: 0.875rem; }
 }
 
 /* ─── Print ──────────────────────────────────────────────────────────────── */
+
 @media print {
   aside, header, nav, .no-print { display: none !important; }
   main { margin: 0 !important; padding: 0 !important; }
-  body { background: white !important; }
+  body { background: white !important; background-image: none !important; }
 }
 
 /* ─── Page fade-in ───────────────────────────────────────────────────────── */
+
 main > * { animation: fadeUp 0.18s ease-out; }
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ─── Scrollbar ──────────────────────────────────────────────────────────── */
-::-webkit-scrollbar       { width: 6px; height: 6px; }
+
+::-webkit-scrollbar       { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.6); }
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 4px;
+  border: 2px solid hsl(var(--background));
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}

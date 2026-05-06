@@ -1,35 +1,35 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AttendanceFilter } from "@/types/attendance";
-import { useEmployees } from "@/hooks/useEmployees";
-import { useAttendance } from "@/hooks/useAttendance";
+import {
+  mockEmployees, mockAttendance, mockCredits, mockDepartments,
+} from "@/data/mockData";
 import StatsCards from "@/components/StatsCards";
 import AttendanceFilters from "@/components/AttendanceFilters";
 import EmployeeList from "@/components/EmployeeList";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
+import { Search, Users, X, ChevronDown } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Search, Users, Flame, AlertCircle } from "lucide-react";
 
-// Maps URL slug → department name as stored in Supabase
 const slugToName: Record<string, string | null> = {
-  all:                  null,
-  administration:       "Administration",
-  "allied-health":      "Allied Health",
-  auxiliary:            "Auxiliary",
-  medicine:             "Medicine",
-  "nursing-midwifery":  "Nursing & Midwifery",
-  pharmacy:             "Pharmacy",
+  all:                 null,
+  administration:      "Administration",
+  "allied-health":     "Allied Health",
+  auxiliary:           "Auxiliary",
+  medicine:            "Medicine",
+  "nursing-midwifery": "Nursing & Midwifery",
+  pharmacy:            "Pharmacy",
 };
 
-// ─── Skeleton loader ──────────────────────────────────────────────────────────
+// ─── Skeletons / empty state ──────────────────────────────────────────────────
+
 function EmployeeListSkeleton() {
   return (
     <div className="space-y-2">
       {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="bg-card rounded-xl border px-4 py-3 flex items-center justify-between gap-4">
+        <div key={i} className="bg-card border border-border rounded-xl px-4 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Skeleton className="h-9 w-9 rounded-full" />
             <div className="space-y-1.5">
@@ -37,122 +37,80 @@ function EmployeeListSkeleton() {
               <Skeleton className="h-2.5 w-24" />
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <Skeleton className="h-5 w-16 hidden sm:block" />
-            <Skeleton className="h-5 w-14 hidden md:block" />
-            <Skeleton className="h-5 w-12" />
-          </div>
+          <Skeleton className="h-5 w-12" />
         </div>
       ))}
     </div>
   );
 }
 
-// ─── Empty state ──────────────────────────────────────────────────────────────
 function EmptyState({ query, filter }: { query: string; filter: AttendanceFilter }) {
   const isFiltered = filter !== "all" || query.length > 0;
   return (
     <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-      <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center">
-        <Users className="h-7 w-7 text-muted-foreground/40" />
+      <div className="h-12 w-12 rounded-full bg-muted/60 flex items-center justify-center">
+        <Users className="h-5 w-5 text-foreground/30" />
       </div>
       <div>
-        <p className="text-sm font-semibold text-foreground">
-          {isFiltered ? "No employees match your search" : "No employees in this department"}
+        <p className="font-display text-[14px] font-semibold">
+          {isFiltered ? "No one matches that" : "No employees in this department"}
         </p>
-        <p className="text-xs text-muted-foreground mt-1">
+        <p className="text-[12px] text-foreground/55 mt-1">
           {query
-            ? `No results for "${query}"`
+            ? `Nothing for "${query}"`
             : filter !== "all"
             ? "Try changing the filter above"
-            : "This department has no staff records yet"}
+            : "Records will appear once BioTime syncs"}
         </p>
       </div>
     </div>
   );
 }
 
-// ─── Error state ──────────────────────────────────────────────────────────────
-function ErrorState({ message }: { message: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-      <div className="h-14 w-14 rounded-full bg-destructive/10 flex items-center justify-center">
-        <AlertCircle className="h-7 w-7 text-destructive/60" />
-      </div>
-      <div>
-        <p className="text-sm font-semibold text-foreground">Failed to load data</p>
-        <p className="text-xs text-muted-foreground mt-1">{message}</p>
-      </div>
-    </div>
-  );
-}
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MAIN COMPONENT
-// ─────────────────────────────────────────────────────────────────────────────
 const Index = () => {
-  const { slug }    = useParams<{ slug: string }>();
-  const navigate    = useNavigate();
-  const [search, setSearch]     = useState("");
+  const { slug } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
+  const [search,    setSearch]    = useState("");
   const [pageReady, setPageReady] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const departmentName   = slug ? (slugToName[slug] ?? null) : null;
+  const departmentName = slug ? (slugToName[slug] ?? null) : null;
 
-  // ── Load all employees + departments from Supabase ─────────────────────────
-  const {
-    employees,
-    departments,
-    loading: empsLoading,
-    error:   empsError,
-  } = useEmployees();
+  const employees   = mockEmployees;
+  const attendance  = mockAttendance;
+  const credits     = mockCredits;
+  const departments = mockDepartments;
 
-  // ── Resolve active department ID ──────────────────────────────────────────
+  const [deptFilter,        setDeptFilter]        = useState<string | null>(null);
+  const [attendanceFilter,  setAttendanceFilter]  = useState<AttendanceFilter>("all");
+  const [visibleCount,      setVisibleCount]      = useState(10);
+
   const activeDepartment = useMemo(() => {
-    if (!departmentName) return null;
-    return departments.find(d => d.name === departmentName)?.id ?? null;
-  }, [departmentName, departments]);
+    if (departmentName) return departments.find(d => d.name === departmentName)?.id ?? null;
+    return deptFilter;
+  }, [departmentName, departments, deptFilter]);
 
-  // ── Load attendance + credits for this department ─────────────────────────
-  const {
-    attendance,
-    credits,
-    loading: attLoading,
-    error:   attError,
-  } = useAttendance({ departmentId: activeDepartment });
-
-  const isLoading = empsLoading || attLoading;
-  const error     = empsError || attError;
-
-  const [attendanceFilter, setAttendanceFilter] = useState<AttendanceFilter>("all");
-  const [visibleCount, setVisibleCount]         = useState(10);
-
-  // Reset on dept change
   useEffect(() => {
     setSearch("");
     setVisibleCount(10);
+    setDeptFilter(null);
     setPageReady(false);
-    const t = setTimeout(() => setPageReady(true), 350);
+    const t = setTimeout(() => setPageReady(true), 200);
     return () => clearTimeout(t);
   }, [slug]);
-
-  // Also set ready once loading finishes
-  useEffect(() => {
-    if (!isLoading) setPageReady(true);
-  }, [isLoading]);
 
   const handleFilterChange = (filter: AttendanceFilter) => {
     setAttendanceFilter(filter);
     setVisibleCount(10);
   };
 
-  // ── Filter employees to current department ─────────────────────────────────
   const deptEmployees = useMemo(() => {
     if (!activeDepartment) return employees;
     return employees.filter(e => e.department_id === activeDepartment);
   }, [employees, activeDepartment]);
 
-  // ── Filter by attendance type ──────────────────────────────────────────────
   const filteredByAttendance = useMemo(() => {
     if (attendanceFilter === "all") return deptEmployees;
     return deptEmployees.filter(emp => {
@@ -167,7 +125,6 @@ const Index = () => {
     });
   }, [deptEmployees, attendanceFilter, attendance]);
 
-  // ── Search filter ──────────────────────────────────────────────────────────
   const filteredEmployees = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return filteredByAttendance;
@@ -179,7 +136,6 @@ const Index = () => {
     );
   }, [filteredByAttendance, search]);
 
-  // ── Stats ──────────────────────────────────────────────────────────────────
   const stats = useMemo(() => {
     const relevantAtt = attendance.filter(a =>
       deptEmployees.some(e => e.id === a.employee_id)
@@ -193,128 +149,150 @@ const Index = () => {
     };
   }, [deptEmployees, attendance]);
 
-  const pageTitle = departmentName ?? "All Departments";
+  const currentDeptName = useMemo(() => {
+    if (departmentName) return departmentName;
+    if (deptFilter) return departments.find(d => d.id === deptFilter)?.name ?? null;
+    return null;
+  }, [departmentName, deptFilter, departments]);
 
-  const showSkeleton = isLoading || !pageReady;
+  const pageTitle    = currentDeptName ?? "All departments";
+  const showSkeleton = !pageReady;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
+    <div className="max-w-[1100px] mx-auto px-6 md:px-10 pt-10 md:pt-14 pb-16">
 
-      {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{pageTitle}</h1>
-          <p className="text-sm text-muted-foreground">
-            {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-            {!showSkeleton && ` · ${deptEmployees.length} staff`}
-          </p>
-        </div>
-        <Select
-          value={slug ?? "all"}
-          onValueChange={val => navigate(`/department/${val}`)}
-        >
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Select Department" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Departments</SelectItem>
-            {/* Prefer dynamic list from Supabase, fall back to static slugs */}
-            {departments.length > 0
-              ? departments.map(d => {
-                  const s = Object.entries(slugToName).find(([, n]) => n === d.name)?.[0];
-                  return s ? (
-                    <SelectItem key={s} value={s}>{d.name}</SelectItem>
-                  ) : null;
-                })
-              : Object.entries(slugToName)
-                  .filter(([k]) => k !== "all")
-                  .map(([s, name]) => (
-                    <SelectItem key={s} value={s}>{name}</SelectItem>
-                  ))
-            }
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* ── Stats ───────────────────────────────────────────────────────── */}
-      {showSkeleton ? (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="stat-card flex items-center gap-4">
-              <Skeleton className="h-11 w-11 rounded-lg" />
-              <div className="space-y-2">
-                <Skeleton className="h-3 w-24" />
-                <Skeleton className="h-6 w-16" />
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <StatsCards {...stats} />
-      )}
-
-      {/* ── Employee list card ───────────────────────────────────────────── */}
-      <div className="bg-card rounded-xl border p-5 space-y-4">
-
-        {/* Search + filter row */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold">Employees</h2>
-            {!showSkeleton && (
-              <span className="text-sm text-muted-foreground">
-                ({filteredEmployees.length}
-                {filteredEmployees.length !== deptEmployees.length
-                  && ` of ${deptEmployees.length}`})
-              </span>
-            )}
+      {/* ── Page header — uniform pattern with Welcome ───────────────── */}
+      <header className="mb-10 pb-6 border-b border-foreground/10">
+        <p className="text-[12px] tracking-[0.14em] uppercase text-foreground/45 font-display font-semibold mb-2">
+          Attendance
+        </p>
+        <div className="flex items-end justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="font-display font-bold text-[34px] md:text-[40px] tracking-tight leading-tight">
+              {pageTitle}
+            </h1>
+            <p className="text-[13px] text-foreground/55 mt-1.5">
+              {new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
+              {!showSkeleton && (
+                <>
+                  <span className="text-foreground/25 mx-2">·</span>
+                  {deptEmployees.length} {deptEmployees.length === 1 ? "person" : "people"}
+                </>
+              )}
+            </p>
           </div>
-          <AttendanceFilters
-            activeFilter={attendanceFilter}
-            onFilterChange={handleFilterChange}
-          />
-        </div>
 
-        {/* Search input */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-          <Input
-            ref={searchRef}
-            placeholder="Search by name, code, position or department..."
-            value={search}
-            onChange={e => { setSearch(e.target.value); setVisibleCount(10); }}
-            className="pl-9 h-9"
-          />
-          {search && (
-            <button
-              onClick={() => { setSearch(""); searchRef.current?.focus(); }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs transition-colors"
-            >
-              Clear
-            </button>
+          {/* Department selector — quiet */}
+          <Select value={slug ?? "all"} onValueChange={val => navigate(`/department/${val}`)}>
+            <SelectTrigger className="w-[200px] h-9 text-[13px]">
+              <SelectValue placeholder="Department" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All departments</SelectItem>
+              {departments.map(d => {
+                const s = Object.entries(slugToName).find(([, n]) => n === d.name)?.[0];
+                return s ? <SelectItem key={s} value={s}>{d.name}</SelectItem> : null;
+              })}
+            </SelectContent>
+          </Select>
+        </div>
+      </header>
+
+      {/* ── Stats ────────────────────────────────────────────────────── */}
+      <section className="mb-10">
+        {showSkeleton ? (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-card border border-border rounded-xl p-4">
+                <Skeleton className="h-3.5 w-3.5 mb-3" />
+                <Skeleton className="h-8 w-16 mb-2" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <StatsCards {...stats} />
+        )}
+      </section>
+
+      {/* ── Employees section ───────────────────────────────────────── */}
+      <section>
+        <div className="flex items-baseline justify-between mb-4 pb-3 border-b border-foreground/10">
+          <h2 className="font-display text-[11px] tracking-[0.14em] uppercase text-foreground/55 font-semibold">
+            Employees
+          </h2>
+          {!showSkeleton && (
+            <span className="text-[11px] text-foreground/40 tabular-nums">
+              {filteredEmployees.length}
+              {filteredEmployees.length !== deptEmployees.length && ` of ${deptEmployees.length}`}
+            </span>
           )}
         </div>
 
-        {/* Overtime context banner */}
+        {/* Department chips (only on All Departments view) */}
+        {!departmentName && (
+          <div className="flex flex-wrap gap-1 mb-4">
+            <DeptChip
+              active={deptFilter === null}
+              count={employees.length}
+              label="All"
+              onClick={() => setDeptFilter(null)}
+            />
+            {departments.map(d => {
+              const count = employees.filter(e => e.department_id === d.id).length;
+              return (
+                <DeptChip
+                  key={d.id}
+                  active={deptFilter === d.id}
+                  count={count}
+                  label={d.name}
+                  onClick={() => setDeptFilter(d.id)}
+                />
+              );
+            })}
+          </div>
+        )}
+
+        {/* Search + filter row */}
+        <div className="flex items-center gap-3 flex-wrap mb-4">
+          {/* Search input */}
+          <div className="relative flex-1 min-w-[240px] max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-foreground/40 pointer-events-none" />
+            <input
+              ref={searchRef}
+              placeholder="Search by name, code or position…"
+              value={search}
+              onChange={e => { setSearch(e.target.value); setVisibleCount(10); }}
+              className="w-full pl-9 pr-9 h-9 rounded-md border border-border bg-card text-[13px] text-foreground placeholder-foreground/40 focus:outline-none focus:border-foreground/30 transition-colors"
+            />
+            {search && (
+              <button
+                onClick={() => { setSearch(""); searchRef.current?.focus(); }}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-foreground/10 text-foreground/40 hover:text-foreground transition-colors"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+
+          <div className="ml-auto">
+            <AttendanceFilters activeFilter={attendanceFilter} onFilterChange={handleFilterChange} />
+          </div>
+        </div>
+
+        {/* Active filter banner */}
         {attendanceFilter === "overtime" && (
-          <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-primary/5 border border-primary/20">
-            <Flame className="h-4 w-4 text-primary shrink-0" />
-            <p className="text-xs text-primary font-medium">
-              Showing{" "}
-              <span className="font-bold">
-                {filteredEmployees.length} employee
-                {filteredEmployees.length !== 1 ? "s" : ""}
-              </span>{" "}
-              who worked overtime. Each row shows the exact date, scheduled hours (9h),
-              actual hours worked, and extra time.
+          <div className="flex items-center gap-2 px-3 py-2 mb-4 rounded-md bg-amc-yellow/10 border border-amc-yellow/30">
+            <p className="text-[12px] text-foreground/80">
+              Showing <span className="font-semibold">{filteredEmployees.length}</span> {filteredEmployees.length === 1 ? "person" : "people"} with overtime this period
             </p>
           </div>
         )}
 
-        {/* List / skeleton / error / empty */}
+        {/* List */}
         {showSkeleton ? (
           <EmployeeListSkeleton />
-        ) : error ? (
-          <ErrorState message={error} />
         ) : filteredEmployees.length === 0 ? (
           <EmptyState query={search} filter={attendanceFilter} />
         ) : (
@@ -327,9 +305,37 @@ const Index = () => {
             activeFilter={attendanceFilter}
           />
         )}
-      </div>
+      </section>
+
     </div>
   );
 };
+
+// ─── Department chip (used on All Departments view) ──────────────────────────
+
+function DeptChip({
+  active, count, label, onClick,
+}: {
+  active: boolean;
+  count: number;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors
+        ${active
+          ? "bg-foreground text-background"
+          : "text-foreground/65 hover:text-foreground hover:bg-foreground/5"
+        }`}
+    >
+      <span>{label}</span>
+      <span className={`text-[11px] tabular-nums ${active ? "text-background/60" : "text-foreground/40"}`}>
+        {count}
+      </span>
+    </button>
+  );
+}
 
 export default Index;

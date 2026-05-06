@@ -1,47 +1,49 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { Outlet, useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Home, Sparkles } from "lucide-react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Sparkles } from "lucide-react";
 import OvertimePanel from "@/components/OvertimePanel";
 
 export default function AppLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="min-h-screen flex w-full bg-background">
         <AppSidebar />
+
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <header className="h-12 flex items-center border-b bg-card sticky top-0 z-10 px-3">
 
-            {/* Left — sidebar trigger, fixed width to balance the right side */}
-            <div className="w-10 shrink-0 flex items-center">
-              <SidebarTrigger />
+          {/* ── Top bar — minimal, sticky, AMC-themed ─────────────────────── */}
+          <header className="h-12 flex items-center bg-background/80 backdrop-blur sticky top-0 z-10 px-4 border-b border-border/60">
+
+            {/* Left — sidebar toggle */}
+            <div className="flex items-center gap-3">
+              <SidebarTrigger className="text-foreground/60 hover:text-foreground" />
             </div>
 
-            {/* Center — truly centered because both sides are equal fixed width */}
-            <div className="flex-1 flex items-center justify-center gap-2">
-              <Button
-                variant="ghost" size="sm" className="gap-1.5"
-                onClick={() => navigate("/")}
-              >
-                <Home className="h-4 w-4" /> Home
-              </Button>
-              <Button
-                variant="outline" size="sm" className="gap-1.5"
+            {/* Center — empty, lets pages own their headers */}
+            <div className="flex-1" />
+
+            {/* Right — quick AI ask + overtime bell */}
+            <div className="flex items-center gap-2">
+              <button
                 onClick={() => navigate("/quick-ask")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors
+                  ${location.pathname === "/quick-ask"
+                    ? "bg-amc-yellow/15 text-foreground"
+                    : "text-foreground/60 hover:text-foreground hover:bg-foreground/5"
+                  }`}
               >
-                <Sparkles className="h-4 w-4" /> Quick AI Ask
-              </Button>
-            </div>
-
-            {/* Right — fixed width matching left, overtime bell sits here */}
-            <div className="w-10 shrink-0 flex items-center justify-end">
+                <Sparkles className="h-3.5 w-3.5" />
+                Quick Ask
+              </button>
               <OvertimePanel />
             </div>
 
           </header>
+
           <main className="flex-1 min-w-0 overflow-x-hidden">
             <Outlet />
           </main>

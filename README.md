@@ -1,73 +1,85 @@
-# Welcome to your Lovable project
+# AMC Workforce
 
-## Project info
+Workforce management system for Accra Medical Centre. Tracks attendance, duty rosters, overtime, and credit balances for permanent staff and locums, with ZK BioTime 9.0 fingerprint integration.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Stack
 
-## How can I edit this code?
+- **Frontend** — React, TypeScript, Vite, Tailwind CSS, shadcn/ui
+- **Backend** — Supabase (Postgres, Auth, Edge Functions)
+- **Hardware** — ZK BioTime 9.0 attendance terminals
+- **Hosting** — TBD
 
-There are several ways of editing your application.
+## Getting started
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+Requires Node.js and npm. If you don't have them, install via [nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+# Install dependencies
+npm install
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start the dev server (runs on http://localhost:8080)
 npm run dev
+
+# Run tests
+npm test
+
+# Build for production
+npm run build
 ```
 
-**Edit a file directly in GitHub**
+## Project structure
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```
+src/
+├── components/      Reusable UI components (shadcn/ui + custom)
+├── pages/           Top-level routes
+├── hooks/           Custom React hooks
+├── data/            Mock data (used until BioTime sync is live)
+├── integrations/
+│   └── supabase/    Supabase client + generated types
+├── types/           Shared TypeScript types
+└── lib/             Utilities
 
-**Use GitHub Codespaces**
+supabase/
+├── functions/       Edge Functions (sync-biotime, quick-ask)
+└── migrations/      SQL migrations
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Environment variables
 
-## What technologies are used for this project?
+Copy `.env.example` to `.env` and fill in the values. Never commit `.env`.
 
-This project is built with:
+```
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+The BioTime sync function uses additional secrets configured in the Supabase dashboard:
+- `BIOTIME_URL`
+- `BIOTIME_USERNAME`
+- `BIOTIME_PASSWORD`
 
-## How can I deploy this project?
+## Brand
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+Colours and fonts follow the AMC brand book.
 
-## Can I connect a custom domain to my Lovable project?
+| Use | Colour | Hex |
+|---|---|---|
+| Primary brand, headings, key UI | Greyish blue | `#324157` |
+| Accent, highlights, locum badges | Dark yellow | `#DCAA05` |
+| Warnings, missed punches, deductions | Vivid red | `#BC0705` |
+| Page background | Light blue | `#F5F6F8` |
 
-Yes, you can!
+Typography: Poppins for UI, Times New Roman for editorial moments (welcome line, big numbers).
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Roles
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+The app supports three roles, scoped via Supabase RLS:
+
+- **HR / Admin** — full access across all departments
+- **Department Head** — sees only their team
+- **Reception** — limited view for issue logging
+
+## License
+
+Internal — Accra Medical Centre.

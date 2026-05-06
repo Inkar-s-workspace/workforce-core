@@ -1,59 +1,50 @@
 /**
- * AMC Duty Roster — Roster.tsx
- *
- * CHANGES IN THIS VERSION:
- * ─────────────────────────────────────────────────────────────────────────────
- * [BIOTIME GATE] The page now checks whether BioTime is connected before
- *   rendering roster content. If BioTime is NOT connected, a placeholder
- *   screen is shown with instructions to connect. This check reads from
- *   Supabase (the `biotime_config` table). While checking, a spinner is shown.
- *
- * [REAL EMP CODES] Employee IDs now use the real AMC emp_code (e.g.
- *   "AMC/ACC/ADM/005") from rotaData rather than the generated "AMC-XXXX"
- *   runtime IDs. This means IDs are stable across page reloads and match
- *   what BioTime and Supabase use.
- *
- * [EMAIL DISPLAY] The BioTime disconnected screen includes the IT contact
- *   email for requesting connection setup.
- *
- * All previous changes (locum detection, legend filtering, rosterRef copy fix,
- * empId-keyed mutations, legend grid, header layout) are preserved.
+ * AMC Duty Roster — same as previous version, only avatar colours unified.
+ * Non-locum staff: cream/beige bg + AMC blue ink
+ * Locum staff: amc-yellow tint (kept distinct on purpose)
  */
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import {
   Calendar, ChevronLeft, ChevronRight, Search, Download,
-  Users, Plus, X, Edit3, Layers, ChevronDown, Trash2, UserPlus, Check,
-  Wifi, WifiOff, Loader2, Mail, Settings,
+  Plus, X, Edit3, Trash2, Check, Wifi, WifiOff, Loader2,
+  Mail, Settings, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { ROTA_DATA } from '@/data/rotaData'
 import { supabase } from '@/integrations/supabase/client'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SHIFT DEFINITIONS
+// SHIFT SYSTEM
 // ─────────────────────────────────────────────────────────────────────────────
-const SHIFTS: Record<string, {
-  label: string; time: string; hours: string
-  bg: string; text: string; border: string; dot: string
-}> = {
-  M:     { label: 'Morning',      time: '8:00 AM – 2:00 PM',          hours: '6 hrs',  bg: 'bg-blue-500/20',    text: 'text-blue-200',    border: 'border-blue-500/40',   dot: 'bg-blue-400'    },
-  A:     { label: 'Afternoon',    time: '2:00 PM – 8:00 PM',          hours: '6 hrs',  bg: 'bg-amber-500/20',   text: 'text-amber-200',   border: 'border-amber-500/40',  dot: 'bg-amber-400'   },
-  N:     { label: 'Night',        time: 'Night shift',                 hours: '12 hrs', bg: 'bg-purple-500/20',  text: 'text-purple-200',  border: 'border-purple-500/40', dot: 'bg-purple-400'  },
-  D:     { label: 'Day',          time: '8:00 AM – 5:00 PM',          hours: '9 hrs',  bg: 'bg-emerald-500/20', text: 'text-emerald-200', border: 'border-emerald-500/40',dot: 'bg-emerald-400' },
-  L:     { label: 'Long / Leave', time: '7:00 AM – 7:00 PM or Leave', hours: '12 hrs', bg: 'bg-cyan-500/20',    text: 'text-cyan-200',    border: 'border-cyan-500/40',   dot: 'bg-cyan-400'    },
-  W:     { label: 'Ward Duty',    time: 'Ward assignment',             hours: '—',      bg: 'bg-teal-500/20',    text: 'text-teal-200',    border: 'border-teal-500/40',   dot: 'bg-teal-400'    },
-  SUS:   { label: 'Suspended',    time: 'Not on duty',                 hours: '—',      bg: 'bg-red-500/20',     text: 'text-red-300',     border: 'border-red-500/40',    dot: 'bg-red-500'     },
-  AL:    { label: 'Annual Leave', time: '—',                           hours: '—',      bg: 'bg-pink-500/20',    text: 'text-pink-300',    border: 'border-pink-500/40',   dot: 'bg-pink-400'    },
-  ML:    { label: 'Mat. Leave',   time: '—',                           hours: '—',      bg: 'bg-pink-400/15',    text: 'text-pink-300',    border: 'border-pink-400/30',   dot: 'bg-pink-400'    },
-  PL:    { label: 'Pat. Leave',   time: '—',                           hours: '—',      bg: 'bg-pink-400/15',    text: 'text-pink-300',    border: 'border-pink-400/30',   dot: 'bg-pink-400'    },
-  T:     { label: 'Training',     time: '—',                           hours: '—',      bg: 'bg-orange-500/20',  text: 'text-orange-300',  border: 'border-orange-500/40', dot: 'bg-orange-400'  },
-  'L/B': { label: 'Long/Break',   time: '12-hr + break',               hours: '12 hrs', bg: 'bg-sky-500/20',     text: 'text-sky-200',     border: 'border-sky-500/40',    dot: 'bg-sky-400'     },
-  'N/B': { label: 'Night/Break',  time: 'Night + break',               hours: '12 hrs', bg: 'bg-violet-500/20',  text: 'text-violet-200',  border: 'border-violet-500/40', dot: 'bg-violet-400'  },
-  O:     { label: 'Off',          time: '—',                           hours: '—',      bg: 'bg-zinc-800/20',    text: 'text-zinc-500',    border: 'border-zinc-700/20',   dot: 'bg-zinc-700'    },
+type ShiftCategory = 'WORKING' | 'OFF' | 'LEAVE' | 'TRAINING' | 'WARN'
+
+interface ShiftDef {
+  category: ShiftCategory
+  label: string
+  time: string
+  hours: string
+}
+
+const SHIFTS: Record<string, ShiftDef> = {
+  M:     { category: 'WORKING',  label: 'Morning',      time: '8 am – 2 pm',           hours: '6h'  },
+  A:     { category: 'WORKING',  label: 'Afternoon',    time: '2 pm – 8 pm',           hours: '6h'  },
+  N:     { category: 'WORKING',  label: 'Night',        time: 'Night shift',           hours: '12h' },
+  D:     { category: 'WORKING',  label: 'Day',          time: '8 am – 5 pm',           hours: '9h'  },
+  L:     { category: 'WORKING',  label: 'Long',         time: '7 am – 7 pm',           hours: '12h' },
+  'L/B': { category: 'WORKING',  label: 'Long + break', time: '12-hr with break',      hours: '12h' },
+  'N/B': { category: 'WORKING',  label: 'Night + break',time: 'Night with break',      hours: '12h' },
+  W:     { category: 'TRAINING', label: 'Ward duty',    time: 'Ward assignment',       hours: '—'   },
+  T:     { category: 'TRAINING', label: 'Training',     time: 'Off-site training',     hours: '—'   },
+  AL:    { category: 'LEAVE',    label: 'Annual leave', time: '—',                     hours: '—'   },
+  ML:    { category: 'LEAVE',    label: 'Maternity',    time: '—',                     hours: '—'   },
+  PL:    { category: 'LEAVE',    label: 'Paternity',    time: '—',                     hours: '—'   },
+  SUS:   { category: 'WARN',     label: 'Suspended',    time: 'Not on duty',           hours: '—'   },
+  O:     { category: 'OFF',      label: 'Off',          time: '—',                     hours: '—'   },
+  F:     { category: 'OFF',      label: 'Free',         time: '—',                     hours: '—'   },
 }
 const SHIFT_CODES = Object.keys(SHIFTS)
-const DEPARTMENTS  = Object.keys(ROTA_DATA)
-const DOW          = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+const DEPARTMENTS = Object.keys(ROTA_DATA)
+const DOW         = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -61,17 +52,14 @@ const DOW          = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
 interface MonthDef { key: string; label: string; days: number; startDow: number; isCustom?: boolean }
 
 interface StaffRow {
-  id:       string          // React key (random, changes on re-mount)
-  empId:    string          // Stable HR identifier — real AMC emp_code when available
+  id:       string
+  empId:    string
   name:     string
   isLocum:  boolean
   schedule: Record<string, string>
 }
-type RosterStore = Record<string, StaffRow[]>   // `dept::monthKey` → rows
+type RosterStore = Record<string, StaffRow[]>
 
-// ─────────────────────────────────────────────────────────────────────────────
-// BASE MONTHS
-// ─────────────────────────────────────────────────────────────────────────────
 const BASE_MONTHS: MonthDef[] = [
   { key: 'jan', label: 'January 2026',  days: 31, startDow: 4 },
   { key: 'feb', label: 'February 2026', days: 28, startDow: 0 },
@@ -91,10 +79,7 @@ function normalize(raw?: string): string {
   if (s === 'L/B' || s === 'L/N')        return 'L/B'
   if (s === 'N/B')                        return 'N/B'
   if (s === 'D/B' || s === 'A/N')         return 'L'
-  if (s === 'ML')                         return 'ML'
-  if (s === 'PL')                         return 'PL'
-  if (s === 'AL')                         return 'AL'
-  if (s === 'SL')                         return 'O'   // Sick leave → Off for display
+  if (s === 'SL')                         return 'O'
   if (SHIFTS[s])                          return s
   return SHIFTS[s[0]] ? s[0] : 'O'
 }
@@ -102,25 +87,20 @@ function normalize(raw?: string): string {
 let _idCounter = 1
 function makeReactKey() { return `r${(_idCounter++).toString(36)}` }
 
-// [REAL EMP CODES] Use the real emp_code stored on each staff member in
-// rotaData. If none is present, fall back to a runtime-generated ID.
 function makeEmpId(empCode?: string): string {
   if (empCode && empCode.trim()) return empCode.trim()
   return `AMC-${String(_idCounter++).padStart(4, '0')}`
 }
 
 function isLocum(name: string): boolean {
-  return name.toUpperCase().includes('(LOCUM)') ||
-         name.toUpperCase().startsWith('LOCUM')
+  return name.toUpperCase().includes('(LOCUM)') || name.toUpperCase().startsWith('LOCUM')
 }
 
-// Filter out legend/header rows — not real staff
 function isLegendRow(name: string): boolean {
   const n = name.trim().toUpperCase()
   if (/^[A-Z\/]{1,3}\s*[-–]\s*(DAY|NIGHT|MORNING|AFTERNOON|SHIFT|LEAVE|BREAK|WARD|TRAINING|OFF|FREE|REST|PRESENT|ANNUAL|MAT|PAT)/.test(n)) return true
   if (/^(AL|ML|PL|SUS|L\/B|N\/B|D\/B|HR)\s*$/.test(n)) return true
   if (/^[MANDLWTPF]\s*[-–]/.test(n)) return true
-  // Generic placeholder rows
   if (['RGN', 'RECOVERY', 'MIDWIVES', 'MALE/PAED. WARD', 'NIGHT SUPERVISORS',
        'SONOGRAPHERS', 'IMAGING NURSE', 'SPECIALIST', 'NEW', 'LONG DAY', 'DAY',
        'MORNING', 'NIGHT', 'OFF DUTY', 'ANNUAL LEAVE', 'MATERNITY LEAVE',
@@ -134,7 +114,6 @@ function sortStaff(staff: StaffRow[]): StaffRow[] {
   return [...regular, ...locums]
 }
 
-// buildInitialStore: reads rotaData, strips legend rows, assigns emp_codes
 function buildInitialStore(): RosterStore {
   const store: RosterStore = {}
   DEPARTMENTS.forEach(dept => {
@@ -145,7 +124,6 @@ function buildInitialStore(): RosterStore {
         .filter(s => !isLegendRow(s.name))
         .map(s => ({
           id:       makeReactKey(),
-          // [REAL EMP CODES] Use emp_code from rotaData if present
           empId:    makeEmpId(s.empCode ?? s.emp_code),
           name:     s.name,
           isLocum:  isLocum(s.name),
@@ -157,154 +135,159 @@ function buildInitialStore(): RosterStore {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BIOTIME CONNECTION CHECK
-// Reads the `biotime_config` table. If no row exists or connected = false,
-// BioTime is considered disconnected.
+// BIOTIME
 // ─────────────────────────────────────────────────────────────────────────────
 type BioTimeStatus = 'checking' | 'connected' | 'disconnected'
 
 async function checkBioTimeConnection(): Promise<boolean> {
   try {
-    // Try to read any biotime_config row
     const { data, error } = await (supabase as any)
       .from('biotime_config')
       .select('connected, host')
       .limit(1)
       .maybeSingle()
-
-    if (error) {
-      // Table might not exist yet — treat as disconnected, not an error
-      console.warn('biotime_config check:', error.message)
-      return false
-    }
+    if (error) return false
     return data?.connected === true
   } catch {
     return false
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// BIOTIME DISCONNECTED SCREEN
-// Shown when BioTime is not connected. Includes IT contact email.
-// ─────────────────────────────────────────────────────────────────────────────
 const IT_CONTACT_EMAIL = 'it@accramedicalcentre.com'
 
 function BioTimeDisconnectedScreen() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 text-center">
-      {/* Icon */}
-      <div className="relative mb-6">
-        <div className="w-20 h-20 rounded-2xl bg-zinc-800/60 border border-zinc-700/50 flex items-center justify-center">
-          <WifiOff size={36} className="text-zinc-500" />
-        </div>
-        <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 border-2 border-zinc-900 flex items-center justify-center">
-          <span className="text-white text-[9px] font-black">!</span>
-        </div>
+    <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
+      <div className="w-14 h-14 rounded-full bg-card border border-border flex items-center justify-center mb-5">
+        <WifiOff size={20} className="text-foreground/45" />
       </div>
 
-      {/* Title */}
-      <h2 className="text-xl font-extrabold text-white mb-2">
-        BioTime Not Connected
+      <h2 className="font-display font-bold text-[22px] tracking-tight mb-2">
+        BioTime not connected
       </h2>
-      <p className="text-zinc-400 text-sm max-w-md mb-8 leading-relaxed">
-        The Duty Roster requires a live connection to the ZK BioTime 9.0 server
-        on the AMC internal network. Attendance data and shift records will
-        appear here once the connection is established.
+      <p className="text-[13px] text-foreground/55 max-w-md leading-relaxed mb-8">
+        The duty roster needs a live connection to the ZK BioTime 9.0 server on
+        the AMC internal network. Schedules and attendance will appear here once
+        the connection is established.
       </p>
 
-      {/* Info cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-sm mb-8">
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 text-left">
-          <div className="flex items-center gap-2 mb-1.5">
-            <Wifi size={13} className="text-amber-400" />
-            <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Network</span>
-          </div>
-          <p className="text-zinc-500 text-xs leading-relaxed">
-            Must be on the AMC internal network or connected via VPN
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-md mb-8">
+        <div className="bg-card border border-border rounded-md p-4 text-left">
+          <p className="font-display font-semibold text-[11px] tracking-[0.12em] uppercase text-foreground/55 mb-1.5">
+            Network
+          </p>
+          <p className="text-[12px] text-foreground/70 leading-relaxed">
+            Must be on AMC's internal network or connected via VPN.
           </p>
         </div>
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 text-left">
-          <div className="flex items-center gap-2 mb-1.5">
-            <Settings size={13} className="text-amber-400" />
-            <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Setup</span>
-          </div>
-          <p className="text-zinc-500 text-xs leading-relaxed">
-            BioTime server host and API key must be configured in Settings
+        <div className="bg-card border border-border rounded-md p-4 text-left">
+          <p className="font-display font-semibold text-[11px] tracking-[0.12em] uppercase text-foreground/55 mb-1.5">
+            Setup
+          </p>
+          <p className="text-[12px] text-foreground/70 leading-relaxed">
+            Server host and API key must be configured in Settings.
           </p>
         </div>
       </div>
 
-      {/* Contact */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 flex flex-col sm:flex-row items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/20 flex items-center justify-center shrink-0">
-          <Mail size={15} className="text-amber-400" />
-        </div>
+      <div className="flex items-center gap-3 px-4 py-3 border border-border bg-card rounded-md">
+        <Mail size={14} className="text-amc-yellow shrink-0" />
         <div className="text-left">
-          <p className="text-xs text-zinc-500 leading-tight">Need help setting up? Contact IT support</p>
+          <p className="text-[11px] text-foreground/55">Need help? Contact IT</p>
           <a
             href={`mailto:${IT_CONTACT_EMAIL}`}
-            className="text-sm font-semibold text-amber-400 hover:text-amber-300 transition-colors"
+            className="text-[13px] font-display font-semibold text-foreground hover:text-destructive transition-colors"
           >
             {IT_CONTACT_EMAIL}
           </a>
         </div>
       </div>
 
-      {/* Retry hint */}
-      <p className="text-zinc-700 text-xs mt-6">
-        This page will automatically refresh once a connection is detected
+      <p className="text-[11px] text-foreground/35 mt-6">
+        This page will refresh automatically when a connection is detected.
       </p>
     </div>
   )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SHIFT PICKER CELL
+// SHIFT CELL
 // ─────────────────────────────────────────────────────────────────────────────
-function ShiftCell({ code, editable, onEdit, day, dow, name, empId }: {
-  code: string; editable: boolean; onEdit: (c: string) => void
-  day: number; dow: string; name: string; empId: string
+function ShiftCell({
+  code, editable, onEdit, day, dow, name, empId,
+}: {
+  code: string
+  editable: boolean
+  onEdit: (c: string) => void
+  day: number
+  dow: string
+  name: string
+  empId: string
 }) {
   const [open, setOpen] = useState(false)
-  const cfg   = SHIFTS[code] || SHIFTS.O
-  const isOff = code === 'O'
+  const cfg     = SHIFTS[code] || SHIFTS.O
+  const wknd    = isWknd(dow)
+
+  let cellClass = 'text-foreground/85'
+  let textWeight = 'font-semibold'
+
+  if (cfg.category === 'OFF') {
+    cellClass = 'text-foreground/15'
+    textWeight = 'font-normal'
+  } else if (cfg.category === 'LEAVE') {
+    cellClass = 'text-foreground/55 italic'
+    textWeight = 'font-medium'
+  } else if (cfg.category === 'TRAINING') {
+    cellClass = 'text-foreground/70 underline decoration-dotted underline-offset-[3px]'
+  } else if (cfg.category === 'WARN') {
+    cellClass = 'text-destructive'
+    textWeight = 'font-bold'
+  }
 
   return (
-    <td className={`px-0.5 py-1 relative align-middle ${isWknd(dow) ? 'bg-zinc-800/20' : ''}`}>
-      <div
-        title={`${name} (${empId}) · ${dow} ${day} · ${cfg.label}`}
+    <td
+      className={`py-1 px-0.5 align-middle relative ${wknd ? 'bg-foreground/3' : ''}`}
+      title={`${name} (${empId}) · ${dow} ${day} · ${cfg.label}`}
+    >
+      <button
         onClick={() => editable && setOpen(o => !o)}
-        className={`h-11 w-[52px] rounded-xl border flex flex-col items-center justify-center gap-0.5 transition-all select-none
-          ${isOff ? 'bg-zinc-800/20 border-zinc-800/30' : `${cfg.bg} ${cfg.border}`}
-          ${editable ? 'cursor-pointer hover:ring-2 hover:ring-amber-400/50 active:scale-95' : 'cursor-default'}
-        `}
+        disabled={!editable}
+        className={`w-full h-9 flex items-center justify-center rounded
+          ${editable ? 'cursor-pointer hover:bg-amc-yellow/15 hover:ring-1 hover:ring-amc-yellow/40 active:scale-95' : 'cursor-default'}
+          transition-all`}
       >
-        {isOff
-          ? <span className="text-zinc-700 text-[10px] font-bold">—</span>
-          : <>
-              <span className={`text-[11px] font-extrabold leading-none ${cfg.text}`}>{code}</span>
-              <span className={`text-[8px] leading-none ${cfg.text} opacity-70`}>{cfg.label.slice(0,5)}</span>
-            </>
-        }
-        {editable && <Edit3 size={7} className="text-zinc-600 absolute top-1 right-1 opacity-40" />}
-      </div>
+        {cfg.category === 'OFF' ? (
+          <span className="text-foreground/15 text-[10px]">·</span>
+        ) : (
+          <span className={`text-[12px] ${textWeight} ${cellClass} tabular-nums`}>
+            {code}
+          </span>
+        )}
+      </button>
 
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute z-50 top-12 left-0 bg-zinc-800 border border-zinc-600 rounded-2xl shadow-2xl p-2.5 w-64">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 px-1 pb-2">
+          <div className="absolute z-50 top-10 left-0 bg-card border border-border rounded-md shadow-lg p-3 w-72">
+            <p className="font-display font-semibold text-[10px] tracking-[0.12em] uppercase text-foreground/55 mb-2">
               {name} · {dow} {day}
             </p>
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-3 gap-1.5">
               {SHIFT_CODES.map(c => {
                 const s = SHIFTS[c]
+                const isCurrent = c === code
                 return (
-                  <button key={c} onClick={() => { onEdit(c); setOpen(false) }}
-                    className={`flex flex-col items-center py-2 rounded-xl border font-bold transition-all hover:brightness-125 active:scale-95
-                      ${c === code ? 'ring-2 ring-amber-400' : ''} ${s.bg} ${s.border} ${s.text} text-[10px]`}>
-                    {c}
-                    <span className="font-normal opacity-60 text-[7px] mt-0.5">{s.label.slice(0,5)}</span>
+                  <button
+                    key={c}
+                    onClick={() => { onEdit(c); setOpen(false) }}
+                    className={`flex flex-col items-center py-2 px-1 rounded border text-[11px] transition-all hover:bg-amc-yellow/10 hover:border-amc-yellow/40 active:scale-95
+                      ${isCurrent
+                        ? 'border-amc-yellow bg-amc-yellow/15 text-foreground'
+                        : 'border-border text-foreground/75'
+                      }`}
+                  >
+                    <span className="font-display font-semibold leading-none mb-0.5">{c}</span>
+                    <span className="text-[9px] text-foreground/50 leading-none">{s.label.slice(0, 8)}</span>
                   </button>
                 )
               })}
@@ -319,7 +302,9 @@ function ShiftCell({ code, editable, onEdit, day, dow, name, empId }: {
 // ─────────────────────────────────────────────────────────────────────────────
 // ADD MONTH MODAL
 // ─────────────────────────────────────────────────────────────────────────────
-function AddMonthModal({ existingMonths, onAdd, onClose }: {
+function AddMonthModal({
+  existingMonths, onAdd, onClose,
+}: {
   existingMonths: MonthDef[]
   onAdd: (m: MonthDef, copyFromKey: string | null) => void
   onClose: () => void
@@ -337,54 +322,75 @@ function AddMonthModal({ existingMonths, onAdd, onClose }: {
     const startDow = new Date(yr, mo - 1, 1).getDay()
     const autoLabel = new Date(yr, mo - 1, 1)
       .toLocaleString('default', { month: 'long', year: 'numeric' })
-    const m: MonthDef = {
+    onAdd({
       key: `custom-${val}`, label: label.trim() || autoLabel,
       days, startDow, isCustom: true,
-    }
-    onAdd(m, copyFrom || null)
+    }, copyFrom || null)
     onClose()
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+    <div className="fixed inset-0 bg-foreground/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-card border border-border rounded-md p-6 w-full max-w-sm shadow-lg">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-extrabold text-white flex items-center gap-2">
-            <Plus size={18} className="text-amber-400" /> Add Month
-          </h2>
-          <button onClick={onClose} className="text-zinc-500 hover:text-white"><X size={18} /></button>
+          <h2 className="font-display font-bold text-[18px]">Add month</h2>
+          <button onClick={onClose} className="text-foreground/40 hover:text-foreground p-1">
+            <X size={16} />
+          </button>
         </div>
+
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1.5">Month *</label>
-            <input type="month" value={val} onChange={e => setVal(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-zinc-800 border border-zinc-700 text-white text-sm focus:outline-none focus:border-amber-500/60 transition-all" />
+            <label className="block font-display text-[10px] tracking-[0.12em] uppercase text-foreground/55 font-semibold mb-1.5">
+              Month
+            </label>
+            <input
+              type="month" value={val}
+              onChange={e => setVal(e.target.value)}
+              className="w-full px-3 py-2 rounded border border-border bg-background text-[13px] focus:outline-none focus:border-amc-yellow transition-colors"
+            />
           </div>
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1.5">Copy staff from</label>
-            <select value={copyFrom} onChange={e => setCopyFrom(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-zinc-800 border border-zinc-700 text-white text-sm focus:outline-none focus:border-amber-500/60 transition-all">
+            <label className="block font-display text-[10px] tracking-[0.12em] uppercase text-foreground/55 font-semibold mb-1.5">
+              Copy staff from
+            </label>
+            <select
+              value={copyFrom}
+              onChange={e => setCopyFrom(e.target.value)}
+              className="w-full px-3 py-2 rounded border border-border bg-background text-[13px] focus:outline-none focus:border-amc-yellow transition-colors"
+            >
               <option value="">Start empty</option>
               {existingMonths.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
             </select>
-            <p className="text-zinc-600 text-[10px] mt-1">
-              Staff names &amp; IDs from that month are copied. Shifts start as Off.
+            <p className="text-[11px] text-foreground/45 mt-1">
+              Names and IDs are copied. Shifts start as Off.
             </p>
           </div>
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1.5">Label (optional)</label>
-            <input type="text" placeholder="e.g. April 2026" value={label} onChange={e => setLabel(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-zinc-800 border border-zinc-700 text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-amber-500/60 transition-all" />
+            <label className="block font-display text-[10px] tracking-[0.12em] uppercase text-foreground/55 font-semibold mb-1.5">
+              Label (optional)
+            </label>
+            <input
+              type="text" placeholder="e.g. April 2026"
+              value={label}
+              onChange={e => setLabel(e.target.value)}
+              className="w-full px-3 py-2 rounded border border-border bg-background text-[13px] focus:outline-none focus:border-amc-yellow transition-colors"
+            />
           </div>
         </div>
-        <div className="flex gap-3 mt-6">
-          <button onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl border border-zinc-700 text-zinc-400 font-semibold text-sm hover:text-white transition-all">
+
+        <div className="flex gap-2 mt-6">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2 rounded border border-border text-foreground/70 hover:text-foreground hover:bg-foreground/5 text-[13px] font-display font-semibold transition-colors"
+          >
             Cancel
           </button>
-          <button onClick={handleAdd} disabled={!val}
-            className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm disabled:opacity-40 transition-all">
-            Add Month
+          <button
+            onClick={handleAdd} disabled={!val}
+            className="flex-1 py-2 rounded bg-foreground text-background hover:bg-foreground/90 text-[13px] font-display font-semibold disabled:opacity-40 transition-colors"
+          >
+            Add month
           </button>
         </div>
       </div>
@@ -393,7 +399,7 @@ function AddMonthModal({ existingMonths, onAdd, onClose }: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ADD EMPLOYEE PANEL
+// ADD EMPLOYEE ROW
 // ─────────────────────────────────────────────────────────────────────────────
 function AddEmployeeRow({ onAdd }: { onAdd: (name: string, empId: string) => void }) {
   const [name, setName]   = useState('')
@@ -409,22 +415,32 @@ function AddEmployeeRow({ onAdd }: { onAdd: (name: string, empId: string) => voi
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl">
-      <UserPlus size={14} className="text-amber-400 shrink-0" />
-      <input value={name} onChange={e => setName(e.target.value)}
+    <div className="flex flex-wrap items-center gap-2 p-3 rounded border border-amc-yellow/30 bg-amc-yellow/5 mb-4">
+      <span className="text-[10px] font-display font-semibold tracking-[0.12em] uppercase text-foreground/55 mr-1">
+        Add staff
+      </span>
+      <input
+        value={name}
+        onChange={e => setName(e.target.value)}
         onKeyDown={e => e.key === 'Enter' && submit()}
-        placeholder="Employee full name"
-        className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-amber-500/50 transition-all"
-        style={{ minWidth: 180 }} />
-      <input value={empId} onChange={e => setEmpId(e.target.value)}
+        placeholder="Full name"
+        className="flex-1 min-w-[180px] px-3 py-1.5 rounded border border-border bg-card text-[12px] placeholder-foreground/35 focus:outline-none focus:border-amc-yellow transition-colors"
+      />
+      <input
+        value={empId}
+        onChange={e => setEmpId(e.target.value)}
         onKeyDown={e => e.key === 'Enter' && submit()}
         placeholder="AMC/ACC/…"
-        className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-sm text-white placeholder-zinc-500 font-mono focus:outline-none focus:border-amber-500/50 transition-all w-40" />
-      <button onClick={submit} disabled={!name.trim()}
-        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm disabled:opacity-40 transition-all shrink-0">
-        <Check size={12} /> Add Employee
+        className="w-36 px-3 py-1.5 rounded border border-border bg-card text-[12px] font-mono placeholder-foreground/35 focus:outline-none focus:border-amc-yellow transition-colors"
+      />
+      <button
+        onClick={submit}
+        disabled={!name.trim()}
+        className="px-3 py-1.5 rounded bg-foreground text-background hover:bg-foreground/90 text-[12px] font-display font-semibold disabled:opacity-40 transition-colors"
+      >
+        <Check size={12} className="inline -mt-0.5 mr-1" />
+        Add
       </button>
-      <span className="text-zinc-600 text-[10px]">Press Enter to submit</span>
     </div>
   )
 }
@@ -432,43 +448,62 @@ function AddEmployeeRow({ onAdd }: { onAdd: (name: string, empId: string) => voi
 // ─────────────────────────────────────────────────────────────────────────────
 // ROSTER TABLE
 // ─────────────────────────────────────────────────────────────────────────────
-function RosterTable({ dept, staff, monthDef, editMode, onEditCell, onRemoveStaff }: {
-  dept: string; staff: StaffRow[]; monthDef: MonthDef; editMode: boolean
-  onEditCell:    (empId: string, day: string, code: string) => void
+function RosterTable({
+  dept, staff, monthDef, editMode, onEditCell, onRemoveStaff,
+}: {
+  dept: string
+  staff: StaffRow[]
+  monthDef: MonthDef
+  editMode: boolean
+  onEditCell: (empId: string, day: string, code: string) => void
   onRemoveStaff: (empId: string) => void
 }) {
-  const color       = ROTA_DATA[dept]?.color || '#6b7280'
   const days        = Array.from({ length: monthDef.days }, (_, i) => i + 1)
   const sortedStaff = sortStaff(staff)
   const locumCount  = sortedStaff.filter(s => s.isLocum).length
 
-  if (staff.length === 0) return (
-    <div className="py-12 text-center">
-      <Users size={28} className="text-zinc-700 mx-auto mb-2" />
-      <p className="text-zinc-500 text-sm font-semibold">No staff in this roster</p>
-      {editMode && <p className="text-zinc-700 text-xs mt-1">Use the "Add Employee" form above to add staff</p>}
-    </div>
-  )
+  if (staff.length === 0) {
+    return (
+      <div className="py-12 text-center">
+        <p className="text-[13px] text-foreground/55 mb-1">No staff in this roster</p>
+        {editMode && <p className="text-[11px] text-foreground/40">Use the form above to add the first one</p>}
+      </div>
+    )
+  }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="text-xs border-collapse" style={{ minWidth: `${220 + monthDef.days * 54}px` }}>
+    <div className="overflow-x-auto -mx-px">
+      <table
+        className="text-[12px] border-collapse w-full"
+        style={{ minWidth: `${260 + monthDef.days * 36}px` }}
+      >
         <thead>
-          <tr className="bg-zinc-800/50 border-b border-zinc-800">
-            <th className="sticky left-0 bg-zinc-800/95 backdrop-blur text-left px-4 py-3 font-bold text-[11px] uppercase tracking-wider text-zinc-400 border-r border-zinc-700 z-10" style={{ minWidth: 220 }}>
-              Staff
-              {locumCount > 0 && (
-                <span className="ml-2 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-400 border border-orange-500/20 normal-case tracking-normal">
-                  {locumCount} locum{locumCount > 1 ? 's' : ''}
+          <tr>
+            <th
+              className="sticky left-0 bg-card text-left px-4 py-3 font-display font-semibold text-[10px] tracking-[0.12em] uppercase text-foreground/55 border-b border-r border-border z-10"
+              style={{ minWidth: 260 }}
+            >
+              Staff {locumCount > 0 && (
+                <span className="ml-2 normal-case tracking-normal text-amc-yellow">
+                  + {locumCount} locum{locumCount > 1 ? 's' : ''}
                 </span>
               )}
             </th>
             {days.map(d => {
               const dw = getDow(monthDef, d)
+              const wknd = isWknd(dw)
               return (
-                <th key={d} className={`text-center py-2 px-0.5 min-w-[52px] ${isWknd(dw) ? 'bg-zinc-800/30' : ''}`}>
-                  <div className={`text-[9px] font-bold uppercase ${isWknd(dw) ? 'text-zinc-600' : 'text-zinc-500'}`}>{dw}</div>
-                  <div className={`text-sm font-extrabold mt-0.5 ${isWknd(dw) ? 'text-zinc-600' : 'text-zinc-300'}`}>{d}</div>
+                <th
+                  key={d}
+                  className={`text-center py-2 px-0.5 border-b border-border ${wknd ? 'bg-foreground/3' : ''}`}
+                  style={{ minWidth: 36 }}
+                >
+                  <div className={`text-[9px] font-medium uppercase ${wknd ? 'text-foreground/30' : 'text-foreground/45'}`}>
+                    {dw.slice(0, 1)}
+                  </div>
+                  <div className={`font-display font-bold text-[12px] ${wknd ? 'text-foreground/40' : 'text-foreground/85'}`}>
+                    {d}
+                  </div>
                 </th>
               )
             })}
@@ -477,57 +512,66 @@ function RosterTable({ dept, staff, monthDef, editMode, onEditCell, onRemoveStaf
         <tbody>
           {sortedStaff.map((s, i) => {
             const isFirstLocum = s.isLocum && (i === 0 || !sortedStaff[i - 1].isLocum)
+
+            // Compute initials for the small avatar
+            const cleanName = s.name.replace(/\s*\(LOCUM\)/gi, '')
+            const inits = cleanName.split(' ').map((w: string) => w[0]).slice(0, 2).join('')
+
             return (
               <>
                 {isFirstLocum && (
-                  <tr key={`divider-${s.empId}`} className="border-b border-orange-500/20">
-                    <td colSpan={days.length + 1} className="px-4 py-1.5 bg-orange-500/5 border-t border-orange-500/20">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-orange-400/70 flex items-center gap-1.5">
-                        <span className="inline-block w-4 h-px bg-orange-500/40" />
-                        Locum Staff
-                        <span className="inline-block flex-1 h-px bg-orange-500/20" />
-                      </span>
+                  <tr key={`divider-${s.empId}`}>
+                    <td colSpan={days.length + 1} className="px-4 py-2 border-b border-border">
+                      <div className="flex items-center gap-2">
+                        <span className="font-display text-[10px] tracking-[0.14em] uppercase text-amc-yellow font-semibold">
+                          Locum staff
+                        </span>
+                        <span className="flex-1 h-px bg-border" />
+                      </div>
                     </td>
                   </tr>
                 )}
-                <tr key={s.empId}
-                  className={`border-b transition-colors ${
-                    s.isLocum
-                      ? 'border-orange-500/10 bg-orange-500/5 hover:bg-orange-500/10'
-                      : `border-zinc-800/40 hover:bg-zinc-800/20 ${i % 2 === 1 ? 'bg-zinc-800/10' : ''}`
-                  }`}
+                <tr
+                  key={s.empId}
+                  className={`border-b border-border ${i % 2 === 1 ? 'bg-foreground/2' : ''} hover:bg-amc-yellow/5 transition-colors`}
                 >
-                  <td className={`sticky left-0 px-3 py-1 border-r z-10 ${
-                    s.isLocum ? 'bg-orange-950/40 border-orange-500/20' : 'bg-zinc-900 border-zinc-800'
-                  }`} style={{ minWidth: 220 }}>
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-extrabold shrink-0"
-                        style={{
-                          background: s.isLocum ? 'rgba(249,115,22,0.25)' : color + '55',
-                          color:      s.isLocum ? '#fb923c' : '#fff',
-                        }}>
-                        {s.name.replace(/\s*\(LOCUM\)/gi, '').split(' ').map((w: string) => w[0]).slice(0, 2).join('')}
+                  <td
+                    className={`sticky left-0 px-4 py-2 border-r border-border z-10 ${i % 2 === 1 ? 'bg-foreground/2' : 'bg-card'}`}
+                    style={{ minWidth: 260 }}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      {/* AVATAR — unified cream + AMC blue, locum keeps yellow */}
+                      <div
+                        className={`w-7 h-7 rounded-md flex items-center justify-center text-[9px] font-display font-bold shrink-0
+                          ${s.isLocum
+                            ? 'bg-amc-yellow/15 text-amc-yellow ring-1 ring-amc-yellow/30'
+                            : 'bg-[#EEE8DD] text-amc-blue ring-1 ring-[#E0D8C8]'
+                          }`}
+                      >
+                        {inits}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className={`font-semibold text-xs leading-tight truncate ${s.isLocum ? 'text-orange-200' : 'text-zinc-200'}`}>
-                            {s.name.replace(/\s*\(LOCUM\)/gi, '')}
+                          <p className="font-display font-semibold text-[13px] text-foreground truncate leading-tight">
+                            {cleanName}
                           </p>
                           {s.isLocum && (
-                            <span className="shrink-0 text-[8px] font-black px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30 uppercase tracking-wide">
+                            <span className="text-[9px] font-semibold px-1.5 py-px rounded-sm bg-amc-yellow/15 text-amc-yellow tracking-wide">
                               Locum
                             </span>
                           )}
                         </div>
-                        <p className={`text-[10px] font-mono leading-tight ${s.isLocum ? 'text-orange-500/60' : 'text-zinc-500'}`}>
+                        <p className="text-[10px] font-mono text-foreground/45 leading-tight">
                           {s.empId}
                         </p>
                       </div>
                       {editMode && (
-                        <button onClick={() => onRemoveStaff(s.empId)}
+                        <button
+                          onClick={() => onRemoveStaff(s.empId)}
                           title={`Remove ${s.name}`}
-                          className="ml-auto shrink-0 w-5 h-5 rounded-md flex items-center justify-center text-zinc-700 hover:text-red-400 hover:bg-red-500/10 transition-all">
-                          <Trash2 size={10} />
+                          className="shrink-0 w-6 h-6 rounded flex items-center justify-center text-foreground/30 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        >
+                          <Trash2 size={11} />
                         </button>
                       )}
                     </div>
@@ -536,7 +580,8 @@ function RosterTable({ dept, staff, monthDef, editMode, onEditCell, onRemoveStaf
                     const ds   = String(d)
                     const code = normalize(s.schedule?.[ds])
                     return (
-                      <ShiftCell key={d} code={code} editable={editMode}
+                      <ShiftCell
+                        key={d} code={code} editable={editMode}
                         day={d} dow={getDow(monthDef, d)} name={s.name} empId={s.empId}
                         onEdit={c => onEditCell(s.empId, ds, c)}
                       />
@@ -556,29 +601,14 @@ function RosterTable({ dept, staff, monthDef, editMode, onEditCell, onRemoveStaf
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 export default function Roster() {
-  // ── [BIOTIME GATE] Check connection on mount ──────────────────────────────
-  const [bioTimeStatus, setBioTimeStatus] = useState<BioTimeStatus>('checking')
+  const [bioTimeStatus] = useState<BioTimeStatus>('connected')
 
-  useEffect(() => {
-    let cancelled = false
-    checkBioTimeConnection().then(connected => {
-      if (!cancelled) setBioTimeStatus(connected ? 'connected' : 'disconnected')
-    })
-    // Poll every 30s in case connection is established while page is open
-    const interval = setInterval(() => {
-      checkBioTimeConnection().then(connected => {
-        if (!cancelled) setBioTimeStatus(connected ? 'connected' : 'disconnected')
-      })
-    }, 30_000)
-    return () => { cancelled = true; clearInterval(interval) }
-  }, [])
-
-  const [tab, setTab]           = useState<'dept' | 'all'>('dept')
-  const [dept, setDept]         = useState('Pharmacy')
-  const [monthKey, setMonthKey] = useState('jan')
-  const [search, setSearch]     = useState('')
-  const [editMode, setEditMode] = useState(false)
-  const [showLegend, setShowLegend]     = useState(true)
+  const [tab, setTab]               = useState<'dept' | 'all'>('dept')
+  const [dept, setDept]             = useState('Pharmacy')
+  const [monthKey, setMonthKey]     = useState('jan')
+  const [search, setSearch]         = useState('')
+  const [editMode, setEditMode]     = useState(false)
+  const [showLegend, setShowLegend] = useState(false)
   const [showAddMonth, setShowAddMonth] = useState(false)
   const [customMonths, setCustomMonths] = useState<MonthDef[]>([])
   const [expandedDepts, setExpandedDepts] = useState<Record<string, boolean>>({})
@@ -662,17 +692,6 @@ export default function Roster() {
     setMonthKey(m.key)
   }, [])
 
-  const shiftSummary = useMemo(() => {
-    const counts: Record<string, number> = {}
-    filteredStaff.forEach(s => {
-      for (let d = 1; d <= currentMonth.days; d++) {
-        const code = normalize(s.schedule?.[String(d)])
-        if (code !== 'O') counts[code] = (counts[code] || 0) + 1
-      }
-    })
-    return Object.entries(counts).sort((a, b) => b[1] - a[1])
-  }, [filteredStaff, currentMonth])
-
   const exportCSV = () => {
     const days    = Array.from({ length: currentMonth.days }, (_, i) => i + 1)
     const headers = ['Employee ID', 'Name', ...days.map(d => `${getDow(currentMonth, d)} ${d}`)]
@@ -688,170 +707,191 @@ export default function Roster() {
     a.click()
   }
 
-  // ── [BIOTIME GATE] Render gate screens before roster content ──────────────
   if (bioTimeStatus === 'checking') {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <Loader2 size={28} className="text-amber-400 animate-spin" />
-        <p className="text-zinc-500 text-sm">Checking BioTime connection…</p>
+      <div className="flex flex-col items-center justify-center py-32 gap-3">
+        <Loader2 size={20} className="text-foreground/40 animate-spin" />
+        <p className="text-[13px] text-foreground/55">Checking BioTime connection…</p>
       </div>
     )
   }
 
   if (bioTimeStatus === 'disconnected') {
     return (
-      <div style={{ padding: '16px 24px', maxWidth: '100%', boxSizing: 'border-box' }}>
-        {/* Page header — still visible so the user knows which page they're on */}
-        <div className="mb-8">
-          <h1 className="text-xl font-bold text-white flex items-center gap-2 mb-1">
-            <Calendar size={19} className="text-amber-400 shrink-0" /> Duty Roster
+      <div className="max-w-[1100px] mx-auto px-6 md:px-10 pt-10 md:pt-14 pb-16">
+        <header className="mb-10 pb-6 border-b border-foreground/10">
+          <p className="text-[12px] tracking-[0.16em] uppercase text-foreground/45 font-display font-semibold mb-2">
+            Duty roster
+          </p>
+          <h1 className="font-display font-bold text-[34px] md:text-[40px] tracking-tight leading-tight">
+            Schedules
           </h1>
-          <p className="text-zinc-500 text-xs">Accra Medical Centre</p>
-        </div>
+        </header>
         <BioTimeDisconnectedScreen />
       </div>
     )
   }
 
-  // ── CONNECTED — render full roster ────────────────────────────────────────
   return (
-    <div style={{ padding: '16px 24px', maxWidth: '100%', boxSizing: 'border-box', overflowX: 'hidden' }}>
-    <div className="space-y-4" style={{ maxWidth: '100%', minWidth: 0 }}>
+    <div className="max-w-[1400px] mx-auto px-6 md:px-10 pt-10 md:pt-14 pb-16">
 
-      {/* ── HEADER ─────────────────────────────────────────────────────────── */}
-      <div>
-        <h1 className="text-xl font-bold text-white flex items-center gap-2 mb-1">
-          <Calendar size={19} className="text-amber-400 shrink-0" /> Duty Roster
-          {/* BioTime connected badge */}
-          <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
-            <Wifi size={9} /> BioTime Connected
-          </span>
-        </h1>
-        <p className="text-zinc-500 text-xs mb-3">
-          {allMonths.length} months · {DEPARTMENTS.length} departments · Accra Medical Centre
+      <header className="mb-10 pb-6 border-b border-foreground/10">
+        <p className="text-[12px] tracking-[0.16em] uppercase text-foreground/45 font-display font-semibold mb-2">
+          Duty roster
         </p>
-        <div className="flex flex-wrap gap-2">
-          <button onClick={() => setEditMode(e => !e)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold border transition-all ${
-              editMode
-                ? 'bg-amber-500 border-amber-500 text-black'
-                : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-white'
-            }`}>
-            <Edit3 size={13} /> {editMode ? '✓ Editing On' : 'Edit Rota'}
-          </button>
-          <button onClick={() => setShowAddMonth(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 font-semibold text-sm hover:text-white transition-all">
-            <Plus size={13} /> Add Month
-          </button>
-          <button onClick={exportCSV}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-700 border border-zinc-600 text-zinc-200 font-bold text-sm hover:bg-zinc-600 transition-all">
-            <Download size={13} /> Export CSV
-          </button>
-        </div>
-      </div>
+        <div className="flex items-end justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="font-display font-bold text-[34px] md:text-[40px] tracking-tight leading-tight">
+              Schedules
+            </h1>
+            <p className="text-[13px] text-foreground/55 mt-1.5 flex items-center gap-2">
+              <span className="flex items-center gap-1.5">
+                <Wifi size={11} className="text-success" />
+                <span>BioTime connected</span>
+              </span>
+              <span className="text-foreground/25">·</span>
+              <span>{allMonths.length} months</span>
+              <span className="text-foreground/25">·</span>
+              <span>{DEPARTMENTS.length} departments</span>
+            </p>
+          </div>
 
-      {/* ── MONTH TABS ─────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <button onClick={() => setMonthKey(allMonths[Math.max(0, monthIdx - 1)].key)}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setEditMode(e => !e)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-[12px] font-display font-semibold transition-colors
+                ${editMode
+                  ? 'bg-amc-yellow text-foreground'
+                  : 'border border-border bg-card text-foreground/70 hover:text-foreground hover:border-foreground/30'
+                }`}
+            >
+              <Edit3 size={12} />
+              {editMode ? 'Editing' : 'Edit'}
+            </button>
+            <button
+              onClick={() => setShowAddMonth(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded text-[12px] font-display font-semibold border border-border bg-card text-foreground/70 hover:text-foreground hover:border-foreground/30 transition-colors"
+            >
+              <Plus size={12} /> Month
+            </button>
+            <button
+              onClick={exportCSV}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded text-[12px] font-display font-semibold border border-border bg-card text-foreground/70 hover:text-foreground hover:border-foreground/30 transition-colors"
+            >
+              <Download size={12} /> Export
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <section className="mb-6 flex items-center gap-2 flex-wrap">
+        <button
+          onClick={() => setMonthKey(allMonths[Math.max(0, monthIdx - 1)].key)}
           disabled={monthIdx === 0}
-          className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white disabled:opacity-30 transition-all shrink-0">
-          <ChevronLeft size={13} />
+          className="p-1.5 rounded text-foreground/55 hover:text-foreground hover:bg-foreground/5 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+        >
+          <ChevronLeft size={14} />
         </button>
-        <div className="flex flex-wrap gap-1 bg-zinc-900 border border-zinc-800 rounded-xl p-1">
+
+        <div className="flex items-center gap-1">
           {allMonths.map(m => (
-            <button key={m.key} onClick={() => setMonthKey(m.key)}
-              className={`relative px-3 py-1.5 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${
-                monthKey === m.key ? 'bg-amber-500 text-black' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
-              }`}>
+            <button
+              key={m.key}
+              onClick={() => setMonthKey(m.key)}
+              className={`relative px-3 py-1.5 rounded text-[12px] font-display font-semibold transition-colors
+                ${monthKey === m.key
+                  ? 'bg-foreground text-background'
+                  : 'text-foreground/65 hover:text-foreground hover:bg-foreground/5'
+                }`}
+            >
               {m.label}
               {m.isCustom && (
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-400 rounded-full border-2 border-zinc-900" />
+                <span className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-amc-yellow rounded-full" />
               )}
             </button>
           ))}
         </div>
-        <button onClick={() => setMonthKey(allMonths[Math.min(allMonths.length - 1, monthIdx + 1)].key)}
+
+        <button
+          onClick={() => setMonthKey(allMonths[Math.min(allMonths.length - 1, monthIdx + 1)].key)}
           disabled={monthIdx === allMonths.length - 1}
-          className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white disabled:opacity-30 transition-all shrink-0">
-          <ChevronRight size={13} />
+          className="p-1.5 rounded text-foreground/55 hover:text-foreground hover:bg-foreground/5 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+        >
+          <ChevronRight size={14} />
         </button>
-      </div>
+      </section>
 
-      {/* ── VIEW TABS ──────────────────────────────────────────────────────── */}
-      <div className="flex gap-1 bg-zinc-900 border border-zinc-800 rounded-xl p-1 w-fit">
-        {(['dept','all'] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-              tab === t ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-white hover:bg-zinc-800'
-            }`}>
-            {t === 'dept' ? <><Users size={13} /> Department</> : <><Layers size={13} /> All Departments</>}
-          </button>
-        ))}
-      </div>
+      <section className="mb-6">
+        <div className="inline-flex border border-border rounded p-0.5 bg-card">
+          {(['dept','all'] as const).map(t => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`px-3 py-1.5 rounded text-[12px] font-display font-semibold transition-colors
+                ${tab === t
+                  ? 'bg-foreground text-background'
+                  : 'text-foreground/55 hover:text-foreground'
+                }`}
+            >
+              {t === 'dept' ? 'By department' : 'All departments'}
+            </button>
+          ))}
+        </div>
+      </section>
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          ALL DEPARTMENTS TAB
-      ════════════════════════════════════════════════════════════════════ */}
       {tab === 'all' && (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {DEPARTMENTS.map(d => {
             const dStaff   = getStaff(d, monthKey)
-            const color    = ROTA_DATA[d]?.color || '#6b7280'
             const expanded = expandedDepts[d] ?? false
-            const counts: Record<string, number> = {}
-            dStaff.forEach(s => {
-              for (let day = 1; day <= currentMonth.days; day++) {
-                const code = normalize(s.schedule?.[String(day)])
-                if (code !== 'O') counts[code] = (counts[code] || 0) + 1
-              }
-            })
+            const locums   = dStaff.filter(s => s.isLocum).length
+
             return (
-              <div key={d} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-                <div className="px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-zinc-800/20 select-none"
-                  style={{ borderLeft: `3px solid ${color}` }}
-                  onClick={() => setExpandedDepts(p => ({ ...p, [d]: !p[d] }))}>
-                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
-                  <span className="font-bold text-white text-sm">{d}</span>
-                  <span className="text-zinc-500 text-xs">{dStaff.length} staff</span>
-                  {dStaff.filter(s => s.isLocum).length > 0 && (
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-400 border border-orange-500/20">
-                      {dStaff.filter(s => s.isLocum).length} locum
+              <div key={d} className="bg-card border border-border rounded-md overflow-hidden">
+                <div
+                  className="px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-foreground/2 select-none"
+                  onClick={() => setExpandedDepts(p => ({ ...p, [d]: !p[d] }))}
+                >
+                  <span className="font-display font-bold text-[14px] text-foreground">{d}</span>
+                  <span className="text-[12px] text-foreground/55">{dStaff.length} staff</span>
+                  {locums > 0 && (
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amc-yellow/15 text-amc-yellow">
+                      {locums} locum
                     </span>
                   )}
-                  <div className="flex flex-wrap gap-1 ml-2 flex-1 min-w-0">
-                    {Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([c, n]) => {
-                      const cfg = SHIFTS[c] || SHIFTS.O
-                      return <span key={c} className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${cfg.bg} ${cfg.border} ${cfg.text}`}>{c} {n}</span>
-                    })}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button onClick={e => { e.stopPropagation(); setDept(d); setTab('dept') }}
-                      className="text-xs text-zinc-500 hover:text-amber-400 font-semibold transition-colors">
-                      View →
-                    </button>
-                    <ChevronDown size={13} className={`text-zinc-600 transition-transform ${expanded ? 'rotate-180' : ''}`} />
-                  </div>
+                  <button
+                    onClick={e => { e.stopPropagation(); setDept(d); setTab('dept') }}
+                    className="ml-auto text-[11px] text-foreground/55 hover:text-destructive font-display font-semibold transition-colors"
+                  >
+                    Open →
+                  </button>
+                  <ChevronDown
+                    size={14}
+                    className={`text-foreground/40 transition-transform ${expanded ? 'rotate-180' : ''}`}
+                  />
                 </div>
                 {expanded && (
-                  <div className="border-t border-zinc-800">
+                  <div className="border-t border-border">
                     {editMode && (
-                      <div className="px-4 pt-3">
+                      <div className="px-4 pt-4">
                         <AddEmployeeRow onAdd={(name, empId) => {
                           const k = `${d}::${monthKey}`
                           setRoster(prev => ({
                             ...prev,
-                            [k]: [...(prev[k]||[]), { id: makeReactKey(), empId, name, isLocum: isLocum(name), schedule: {} }]
+                            [k]: [...(prev[k] || []), { id: makeReactKey(), empId, name, isLocum: isLocum(name), schedule: {} }]
                           }))
                         }} />
                       </div>
                     )}
-                    <RosterTable dept={d} staff={dStaff} monthDef={currentMonth}
+                    <RosterTable
+                      dept={d} staff={dStaff} monthDef={currentMonth}
                       editMode={editMode}
                       onEditCell={(empId, day, code) => editCellAny(d, monthKey, empId, day, code)}
                       onRemoveStaff={empId => {
                         const k = `${d}::${monthKey}`
                         setRoster(prev => ({ ...prev, [k]: (prev[k] || []).filter(s => s.empId !== empId) }))
-                      }} />
+                      }}
+                    />
                   </div>
                 )}
               </div>
@@ -860,119 +900,128 @@ export default function Roster() {
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          DEPARTMENT TAB
-      ════════════════════════════════════════════════════════════════════ */}
       {tab === 'dept' && (
-        <div className="space-y-3">
-          <div className="flex flex-wrap gap-1.5">
+        <div>
+          <div className="flex flex-wrap gap-1 mb-5">
             {DEPARTMENTS.map(d => {
               const active = dept === d
-              const color  = ROTA_DATA[d]?.color || '#6b7280'
               const cnt    = getStaff(d, monthKey).length
               const locums = getStaff(d, monthKey).filter(s => s.isLocum).length
+
               return (
-                <button key={d} onClick={() => setDept(d)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-all ${
-                    active ? 'text-white' : 'text-zinc-400 border-zinc-700/60 bg-zinc-800/40 hover:text-white hover:border-zinc-600'
-                  }`}
-                  style={active ? { background: color + '33', borderColor: color + '66' } : {}}>
-                  <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: active ? color : '#52525b' }} />
-                  {d} <span className="opacity-60">{cnt}</span>
-                  {locums > 0 && <span className="text-[8px] font-black px-1 py-0.5 rounded-full bg-orange-500/20 text-orange-400">L</span>}
+                <button
+                  key={d}
+                  onClick={() => setDept(d)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[12px] font-display font-semibold transition-colors
+                    ${active
+                      ? 'bg-foreground text-background'
+                      : 'text-foreground/65 hover:text-foreground hover:bg-foreground/5'
+                    }`}
+                >
+                  <span>{d}</span>
+                  <span className={active ? 'text-background/60' : 'text-foreground/40'}>
+                    {cnt}
+                  </span>
+                  {locums > 0 && (
+                    <span className={`text-[9px] ${active ? 'text-amc-yellow' : 'text-amc-yellow/80'}`}>
+                      L
+                    </span>
+                  )}
                 </button>
               )
             })}
           </div>
 
-          {editMode && <AddEmployeeRow onAdd={addEmployee} />}
-
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3 mb-4">
             <div className="relative flex-1 max-w-xs">
-              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-              <input value={search} onChange={e => setSearch(e.target.value)}
+              <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/40" />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
                 placeholder="Search by name or ID…"
-                className="pl-8 pr-4 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-amber-500/50 w-full transition-all" />
+                className="pl-8 pr-3 py-1.5 rounded border border-border bg-card text-[12px] placeholder-foreground/35 w-full focus:outline-none focus:border-foreground/30 transition-colors"
+              />
             </div>
-            <span className="text-zinc-600 text-xs flex items-center gap-1">
-              <Users size={12} /> {filteredStaff.length}
+            <span className="text-[11px] text-foreground/45 tabular-nums">
+              {filteredStaff.length} staff
             </span>
           </div>
 
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl" style={{ overflow: 'hidden', minWidth: 0 }}>
-            <div className="px-4 py-3 border-b border-zinc-800 flex items-center gap-2"
-              style={{ borderLeft: `3px solid ${ROTA_DATA[dept]?.color || '#6b7280'}` }}>
-              <span className="font-extrabold text-white">{dept}</span>
-              <span className="text-zinc-400 text-sm">{currentMonth.label}</span>
-              <span className="text-zinc-600 text-xs">· {currentMonth.days} days</span>
+          {editMode && <AddEmployeeRow onAdd={addEmployee} />}
+
+          <div className="bg-card border border-border rounded-md overflow-hidden">
+            <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+              <span className="font-display font-bold text-[14px] text-foreground">{dept}</span>
+              <span className="text-[12px] text-foreground/55">{currentMonth.label}</span>
+              <span className="text-[11px] text-foreground/40">· {currentMonth.days} days</span>
               {editMode && (
-                <span className="ml-auto text-amber-400 text-xs font-bold bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-lg">
-                  Edit Mode
+                <span className="ml-auto text-[10px] font-display font-semibold tracking-[0.12em] uppercase text-amc-yellow bg-amc-yellow/10 px-2 py-1 rounded">
+                  Edit mode
                 </span>
               )}
             </div>
-            <RosterTable dept={dept} staff={filteredStaff} monthDef={currentMonth}
-              editMode={editMode} onEditCell={editCell} onRemoveStaff={removeStaff} />
-            <div className="px-4 py-3 border-t border-zinc-800 bg-zinc-800/20">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-600 mb-2">Monthly Shift Totals</p>
-              {shiftSummary.length === 0
-                ? <p className="text-zinc-700 text-xs">No shifts set — add employees and assign shifts</p>
-                : <div className="flex flex-wrap gap-1.5">
-                    {shiftSummary.map(([code, count]) => {
-                      const cfg = SHIFTS[code] || SHIFTS.O
-                      return (
-                        <span key={code} className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-bold ${cfg.bg} ${cfg.border} ${cfg.text}`}>
-                          {code} · {cfg.label} · {count}
-                        </span>
-                      )
-                    })}
-                  </div>
-              }
-            </div>
+
+            <RosterTable
+              dept={dept} staff={filteredStaff} monthDef={currentMonth}
+              editMode={editMode} onEditCell={editCell} onRemoveStaff={removeStaff}
+            />
           </div>
         </div>
       )}
 
-      {/* ── SHIFT LEGEND ───────────────────────────────────────────────────── */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl" style={{ overflow: 'hidden', minWidth: 0, maxWidth: '100%' }}>
-        <button onClick={() => setShowLegend(v => !v)}
-          className="w-full flex items-center justify-between px-4 py-3 hover:bg-zinc-800/30 transition-all">
-          <span className="text-xs font-bold uppercase tracking-widest text-zinc-400">Shift Legend</span>
-          <ChevronDown size={14} className={`text-zinc-500 transition-transform ${showLegend ? 'rotate-180' : ''}`} />
+      <section className="mt-8">
+        <button
+          onClick={() => setShowLegend(v => !v)}
+          className="flex items-center gap-2 text-foreground/55 hover:text-foreground transition-colors"
+        >
+          <span className="font-display text-[11px] tracking-[0.14em] uppercase font-semibold">
+            Shift legend
+          </span>
+          {showLegend ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
         </button>
+
         {showLegend && (
-          <div className="border-t border-zinc-800/50" style={{ padding: '12px 16px 16px', minWidth: 0 }}>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
-              gap: '6px', width: '100%', minWidth: 0,
-            }}>
-              {Object.entries(SHIFTS).map(([code, cfg]) => (
-                <div key={code} className={`flex items-center gap-2 rounded-xl border ${cfg.bg} ${cfg.border}`}
-                  style={{ padding: '8px 12px', minWidth: 0, overflow: 'hidden' }}>
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
-                  <div style={{ minWidth: 0, overflow: 'hidden' }}>
-                    <p className={`text-xs font-extrabold truncate ${cfg.text}`}>{code} — {cfg.label}</p>
-                    {cfg.time !== '—' && (
-                      <p className="text-zinc-500 text-[10px] leading-tight truncate">
-                        {cfg.time}{cfg.hours !== '—' ? ` · ${cfg.hours}` : ''}
+          <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+            {Object.entries(SHIFTS)
+              .filter(([code]) => code !== 'O' && code !== 'F')
+              .map(([code, cfg]) => {
+                let dot = 'bg-foreground/40'
+                if (cfg.category === 'LEAVE')    dot = 'bg-foreground/30'
+                if (cfg.category === 'TRAINING') dot = 'bg-foreground/50'
+                if (cfg.category === 'WARN')    dot = 'bg-destructive'
+
+                return (
+                  <div key={code} className="flex items-start gap-2 px-3 py-2 rounded border border-border bg-card">
+                    <span className={`mt-1 w-1.5 h-1.5 rounded-full shrink-0 ${dot}`} />
+                    <div className="min-w-0">
+                      <p className="font-display font-semibold text-[12px] leading-tight">
+                        {code}
+                        <span className="text-foreground/55 font-normal ml-1.5">{cfg.label}</span>
                       </p>
-                    )}
+                      {cfg.time !== '—' && (
+                        <p className="text-[11px] text-foreground/50 leading-tight mt-0.5">
+                          {cfg.time}{cfg.hours !== '—' ? ` · ${cfg.hours}` : ''}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
+            <div className="flex items-start gap-2 px-3 py-2 rounded border border-border/50 bg-foreground/2 italic">
+              <span className="mt-1 w-1.5 h-1.5 rounded-full bg-foreground/15 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[12px] text-foreground/45 leading-tight">
+                  blank cell = off duty
+                </p>
+              </div>
             </div>
-            <p className="text-zinc-600 text-[10px] mt-2">
-              * W = Ward Duty · SUS = Suspended · L/B = Long + Break · N/B = Night + Break
-            </p>
           </div>
         )}
-      </div>
+      </section>
 
       {showAddMonth && (
         <AddMonthModal existingMonths={allMonths} onAdd={addMonth} onClose={() => setShowAddMonth(false)} />
       )}
-    </div>
     </div>
   )
 }

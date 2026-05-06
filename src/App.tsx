@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/hooks/useAuth";
 import { OvertimeProvider } from "@/hooks/useOvertimeNotifications";
@@ -15,6 +15,7 @@ import Settings from "./pages/Settings";
 import Reports from "./pages/Reports";
 import Resources from "./pages/Resources";
 import Roster from "./pages/Roster";
+import Metrics from "./pages/Metrics";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -45,6 +46,10 @@ const App = () => (
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/resources" element={<Resources />} />
                   <Route path="/roster" element={<Roster />} />
+
+                  {/* Metrics — /metrics redirects to first metric, /metrics/:slug shows that one */}
+                  <Route path="/metrics" element={<Navigate to="/metrics/punctuality" replace />} />
+                  <Route path="/metrics/:slug" element={<Metrics />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>

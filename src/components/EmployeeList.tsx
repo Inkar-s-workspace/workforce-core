@@ -1,13 +1,12 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Employee, AttendanceRecord, CreditBalance } from "@/types/attendance";
 import type { AttendanceFilter } from "@/types/attendance";
 import {
-  Clock, AlertTriangle, ChevronDown, Timer, CreditCard,
-  User, Building2, Hash, Calendar, CheckCircle2, XCircle,
-  TrendingUp, Briefcase, Shield, ChevronRight, Flame, ArrowUp,
+  Clock, AlertTriangle, ChevronDown, Hash, Calendar, CheckCircle2,
+  XCircle, TrendingUp, Briefcase, Shield, ChevronRight, Building2,
+  ArrowUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -41,77 +40,94 @@ function fmtDate(iso: string) {
   });
 }
 
-// Avatar colour based on name — gives each employee a consistent unique colour
-const AVATAR_COLORS = [
-  { bg: "bg-violet-500/20",  text: "text-violet-400",  ring: "ring-violet-500/30"  },
-  { bg: "bg-blue-500/20",    text: "text-blue-400",    ring: "ring-blue-500/30"    },
-  { bg: "bg-emerald-500/20", text: "text-emerald-400", ring: "ring-emerald-500/30" },
-  { bg: "bg-amber-500/20",   text: "text-amber-400",   ring: "ring-amber-500/30"   },
-  { bg: "bg-rose-500/20",    text: "text-rose-400",    ring: "ring-rose-500/30"    },
-  { bg: "bg-teal-500/20",    text: "text-teal-400",    ring: "ring-teal-500/30"    },
-  { bg: "bg-orange-500/20",  text: "text-orange-400",  ring: "ring-orange-500/30"  },
-  { bg: "bg-cyan-500/20",    text: "text-cyan-400",    ring: "ring-cyan-500/30"    },
-];
-
-function avatarColor(name: string) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+// Locum detection
+function isLocum(emp: Employee) {
+  return (
+    emp.emp_code?.startsWith("AMC/LOC/") ||
+    emp.first_name?.toUpperCase().includes("(LOCUM)") ||
+    emp.last_name?.toUpperCase().includes("(LOCUM)")
+  );
 }
 
-// ─── Status pill ──────────────────────────────────────────────────────────────
+// ─── Status pill — calmer, AMC palette ────────────────────────────────────────
 
 function StatusPill({ record }: { record: AttendanceRecord }) {
   if (record.missed_clock_in && record.missed_clock_out)
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-red-500/15 text-red-400 border border-red-500/25">
-        <AlertTriangle className="h-3 w-3" /> Missed Both
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium bg-destructive/10 text-destructive border border-destructive/20">
+        Missed both
       </span>
     );
   if (record.missed_clock_in)
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-orange-500/15 text-orange-400 border border-orange-500/25">
-        <XCircle className="h-3 w-3" /> No Clock-In
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium bg-destructive/10 text-destructive border border-destructive/20">
+        No clock-in
       </span>
     );
   if (record.missed_clock_out)
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/25">
-        <Clock className="h-3 w-3" /> No Clock-Out
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium bg-amc-yellow/15 text-amc-yellow border border-amc-yellow/25">
+        No clock-out
       </span>
     );
   if (record.is_overtime)
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-500/15 text-blue-400 border border-blue-500/25">
-        <TrendingUp className="h-3 w-3" /> Overtime
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium bg-foreground/8 text-foreground/75 border border-foreground/15">
+        Overtime
       </span>
     );
   return (
-    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
-      <CheckCircle2 className="h-3 w-3" /> Present
+    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium bg-success/10 text-success border border-success/20">
+      Present
     </span>
   );
 }
 
-// ─── Info tile ────────────────────────────────────────────────────────────────
+// ─── Info tile (used in detail sheet) ─────────────────────────────────────────
 
 function InfoTile({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
   return (
-    <div className="bg-muted/40 rounded-xl p-3 space-y-1">
-      <div className="flex items-center gap-1.5 text-muted-foreground">
+    <div className="bg-foreground/3 border border-border rounded-md p-3 space-y-1">
+      <div className="flex items-center gap-1.5 text-foreground/55">
         <Icon className="h-3 w-3" />
-        <span className="text-[10px] font-semibold uppercase tracking-wider">{label}</span>
+        <span className="text-[10px] font-display font-semibold uppercase tracking-[0.12em]">{label}</span>
       </div>
-      <p className="text-sm font-semibold truncate">{value}</p>
+      <p className="text-[13px] font-display font-semibold truncate">{value}</p>
     </div>
   );
 }
 
-function StatTile({ label, value, color }: { label: string; value: string | number; color: string }) {
+function StatTile({ label, value, tone = "neutral" }: {
+  label: string; value: string | number; tone?: "neutral" | "warn" | "good";
+}) {
+  const valueColor =
+    tone === "warn" ? "text-destructive" :
+    tone === "good" ? "text-success" :
+    "text-foreground";
   return (
-    <div className="bg-muted/40 rounded-xl p-3 text-center">
-      <p className={`text-xl font-bold ${color}`}>{value}</p>
-      <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{label}</p>
+    <div className="bg-foreground/3 border border-border rounded-md p-3 text-center">
+      <p className={`text-[20px] font-display font-bold tabular-nums ${valueColor}`}>{value}</p>
+      <p className="text-[10px] text-foreground/55 mt-1 leading-tight">{label}</p>
+    </div>
+  );
+}
+
+// ─── Avatar — unified for all non-locum, yellow for locum ─────────────────────
+
+function Avatar({ emp, size = "md" }: { emp: Employee; size?: "sm" | "md" | "lg" }) {
+  const locum = isLocum(emp);
+  const sz =
+    size === "sm" ? "h-8 w-8 text-[10px]" :
+    size === "lg" ? "h-14 w-14 text-[16px]" :
+    "h-10 w-10 text-[12px]";
+
+  const colorClasses = locum
+    ? "bg-amc-yellow/15 text-amc-yellow ring-1 ring-amc-yellow/30"
+    : "bg-[#EEE8DD] text-amc-blue ring-1 ring-[#E0D8C8]";
+
+  return (
+    <div className={`${sz} rounded-lg ${colorClasses} flex items-center justify-center shrink-0 font-display font-bold`}>
+      {emp.first_name[0]}{emp.last_name[0]}
     </div>
   );
 }
@@ -127,7 +143,7 @@ function EmployeeSheet({ emp, attendance, credit, open, onClose }: {
 }) {
   if (!emp) return null;
 
-  const ac            = avatarColor(`${emp.first_name} ${emp.last_name}`);
+  const locum         = isLocum(emp);
   const totalHours    = attendance.reduce((s, a) => s + a.hours_worked, 0);
   const missedIns     = attendance.filter(a => a.missed_clock_in).length;
   const missedOuts    = attendance.filter(a => a.missed_clock_out).length;
@@ -137,33 +153,34 @@ function EmployeeSheet({ emp, attendance, credit, open, onClose }: {
   const attendanceRate = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 100;
   const finalCredit   = credit?.final_credit ?? 1500;
   const hoursPercent  = Math.min(100, (totalHours / 180) * 100);
-  const creditColor   = finalCredit < 1300 ? "text-red-400" : finalCredit < 1500 ? "text-amber-400" : "text-emerald-400";
 
   return (
     <Sheet open={open} onOpenChange={v => !v && onClose()}>
       <SheetContent side="right" className="w-full sm:max-w-lg p-0 flex flex-col gap-0">
-        <SheetHeader className="px-6 pt-6 pb-4 border-b shrink-0">
+        <SheetHeader className="px-6 pt-6 pb-4 border-b border-border shrink-0">
           <div className="flex items-center gap-4">
-            <div className={`h-14 w-14 rounded-2xl ${ac.bg} ring-2 ${ac.ring} flex items-center justify-center shrink-0`}>
-              <span className={`text-lg font-black ${ac.text}`}>
-                {emp.first_name[0]}{emp.last_name[0]}
-              </span>
-            </div>
+            <Avatar emp={emp} size="lg" />
             <div className="min-w-0 flex-1">
-              <SheetTitle className="text-lg font-bold">{emp.first_name} {emp.last_name}</SheetTitle>
-              <SheetDescription className="text-sm mt-0.5">{emp.position} · {emp.department_name}</SheetDescription>
-              <div className="flex items-center gap-2 mt-2 flex-wrap">
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-muted text-muted-foreground">
+              <SheetTitle className="font-display font-bold text-[18px]">
+                {emp.first_name} {emp.last_name}
+              </SheetTitle>
+              <SheetDescription className="text-[13px] mt-0.5 text-foreground/55">
+                {emp.position} · {emp.department_name}
+              </SheetDescription>
+              <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono text-foreground/55 bg-foreground/5">
                   {emp.emp_code}
                 </span>
                 {emp.is_department_head && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
-                    Dept Head
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-foreground/8 text-foreground/75 border border-foreground/15">
+                    Dept head
                   </span>
                 )}
-                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  Active
-                </span>
+                {locum && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amc-yellow/15 text-amc-yellow border border-amc-yellow/25">
+                    Locum
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -176,118 +193,132 @@ function EmployeeSheet({ emp, attendance, credit, open, onClose }: {
             <TabsTrigger value="credits" className="flex-1">Credits</TabsTrigger>
           </TabsList>
 
+          {/* ── Profile tab ─────────────────────────────────────────── */}
           <TabsContent value="profile" className="flex-1 min-h-0 mt-0">
             <ScrollArea className="h-full px-6 pb-6">
               <div className="space-y-5 pt-2">
                 <div className="grid grid-cols-2 gap-2">
-                  <InfoTile icon={Hash}      label="Employee Code" value={emp.emp_code} />
-                  <InfoTile icon={Building2} label="Department"    value={emp.department_name} />
-                  <InfoTile icon={Briefcase} label="Position"      value={emp.position ?? "—"} />
-                  <InfoTile icon={Shield}    label="Role"          value={emp.is_department_head ? "Dept Head" : "Staff"} />
+                  <InfoTile icon={Hash}      label="Code"       value={emp.emp_code} />
+                  <InfoTile icon={Building2} label="Department" value={emp.department_name} />
+                  <InfoTile icon={Briefcase} label="Position"   value={emp.position ?? "—"} />
+                  <InfoTile icon={Shield}    label="Role"       value={locum ? "Locum" : emp.is_department_head ? "Dept Head" : "Staff"} />
                 </div>
                 <Separator />
+
                 {(() => {
                   const todayStr = new Date().toISOString().split("T")[0];
                   const todayRec = attendance.find(a => a.date === todayStr);
                   return (
                     <div>
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Today's Status</p>
+                      <p className="font-display text-[10px] tracking-[0.14em] uppercase text-foreground/55 font-semibold mb-3">
+                        Today's status
+                      </p>
                       {todayRec ? (
-                        <div className="rounded-xl border overflow-hidden divide-y divide-border">
+                        <div className="rounded-md border border-border overflow-hidden divide-y divide-border">
                           <div className="flex items-center justify-between px-4 py-3">
-                            <span className="text-sm font-medium flex items-center gap-2">
+                            <span className="text-[13px] flex items-center gap-2">
                               {todayRec.missed_clock_in
-                                ? <XCircle className="h-4 w-4 text-red-400" />
-                                : <CheckCircle2 className="h-4 w-4 text-emerald-400" />}
-                              Clock-In
+                                ? <XCircle className="h-3.5 w-3.5 text-destructive" />
+                                : <CheckCircle2 className="h-3.5 w-3.5 text-success" />}
+                              Clock-in
                             </span>
-                            <span className={`text-sm font-mono font-bold ${todayRec.missed_clock_in ? "text-red-400" : "text-emerald-400"}`}>
+                            <span className={`text-[13px] font-mono font-semibold tabular-nums ${todayRec.missed_clock_in ? "text-destructive" : "text-foreground"}`}>
                               {fmtTime(todayRec.clock_in)}
                             </span>
                           </div>
                           <div className="flex items-center justify-between px-4 py-3">
-                            <span className="text-sm font-medium flex items-center gap-2">
+                            <span className="text-[13px] flex items-center gap-2">
                               {todayRec.missed_clock_out
-                                ? <XCircle className="h-4 w-4 text-amber-400" />
-                                : <CheckCircle2 className="h-4 w-4 text-emerald-400" />}
-                              Clock-Out
+                                ? <XCircle className="h-3.5 w-3.5 text-destructive" />
+                                : <CheckCircle2 className="h-3.5 w-3.5 text-success" />}
+                              Clock-out
                             </span>
-                            <span className={`text-sm font-mono font-bold ${todayRec.missed_clock_out ? "text-amber-400" : "text-emerald-400"}`}>
+                            <span className={`text-[13px] font-mono font-semibold tabular-nums ${todayRec.missed_clock_out ? "text-destructive" : "text-foreground"}`}>
                               {fmtTime(todayRec.clock_out)}
                             </span>
                           </div>
-                          <div className="flex items-center justify-between px-4 py-3 bg-muted/20">
-                            <span className="text-sm font-medium">Hours Today</span>
-                            <span className="text-sm font-bold">
+                          <div className="flex items-center justify-between px-4 py-3 bg-foreground/3">
+                            <span className="text-[13px]">Hours today</span>
+                            <span className="text-[13px] font-display font-bold tabular-nums">
                               {todayRec.hours_worked > 0 ? `${todayRec.hours_worked.toFixed(1)}h` : "—"}
                             </span>
                           </div>
                         </div>
                       ) : (
-                        <div className="rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+                        <div className="rounded-md border border-dashed border-border px-4 py-6 text-center text-[13px] text-foreground/55">
                           No record for today yet
                         </div>
                       )}
                     </div>
                   );
                 })()}
+
                 <Separator />
                 <div className="grid grid-cols-3 gap-2">
-                  <StatTile label="Days Tracked" value={totalDays} color="text-foreground" />
-                  <StatTile label="Present" value={presentDays} color="text-emerald-400" />
-                  <StatTile label="Attend. Rate" value={`${attendanceRate}%`}
-                    color={attendanceRate >= 90 ? "text-emerald-400" : attendanceRate >= 75 ? "text-amber-400" : "text-red-400"} />
+                  <StatTile label="Days tracked" value={totalDays} />
+                  <StatTile label="Present"      value={presentDays} tone="good" />
+                  <StatTile
+                    label="Attend. rate"
+                    value={`${attendanceRate}%`}
+                    tone={attendanceRate >= 90 ? "good" : attendanceRate >= 75 ? "neutral" : "warn"}
+                  />
                 </div>
-                <div className="bg-muted/40 rounded-xl p-4 space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium">Monthly Hours</span>
-                    <span className="text-muted-foreground text-xs">{totalHours.toFixed(1)}h / 180h</span>
+
+                <div className="bg-foreground/3 border border-border rounded-md p-4 space-y-2">
+                  <div className="flex items-center justify-between text-[13px]">
+                    <span className="font-medium">Monthly hours</span>
+                    <span className="text-foreground/55 text-[12px] tabular-nums">
+                      {totalHours.toFixed(1)}h / 180h
+                    </span>
                   </div>
-                  <Progress value={hoursPercent} className="h-2" />
+                  <Progress value={hoursPercent} className="h-1.5" />
                 </div>
               </div>
             </ScrollArea>
           </TabsContent>
 
+          {/* ── Attendance tab ──────────────────────────────────────── */}
           <TabsContent value="attendance" className="flex-1 min-h-0 mt-0">
             <ScrollArea className="h-full px-6 pb-6">
               <div className="space-y-4 pt-2">
                 <div className="grid grid-cols-4 gap-2">
-                  <StatTile label="Missed In"  value={missedIns}    color={missedIns > 0 ? "text-orange-400" : "text-foreground"} />
-                  <StatTile label="Missed Out" value={missedOuts}   color={missedOuts > 0 ? "text-amber-400" : "text-foreground"} />
-                  <StatTile label="Overtime"   value={overtimeDays} color={overtimeDays > 0 ? "text-blue-400" : "text-foreground"} />
-                  <StatTile label="Present"    value={presentDays}  color="text-emerald-400" />
+                  <StatTile label="Missed in"  value={missedIns}    tone={missedIns > 0 ? "warn" : "neutral"} />
+                  <StatTile label="Missed out" value={missedOuts}   tone={missedOuts > 0 ? "warn" : "neutral"} />
+                  <StatTile label="Overtime"   value={overtimeDays} />
+                  <StatTile label="Present"    value={presentDays}  tone="good" />
                 </div>
                 <Separator />
                 {attendance.length === 0 ? (
-                  <div className="text-center py-8 text-sm text-muted-foreground">No records found.</div>
+                  <div className="text-center py-8 text-[13px] text-foreground/55">No records found.</div>
                 ) : (
-                  <div className="rounded-xl border overflow-hidden">
+                  <div className="rounded-md border border-border overflow-hidden">
                     <Table>
                       <TableHeader>
-                        <TableRow className="bg-muted/50 hover:bg-muted/50">
-                          <TableHead className="h-9 text-[11px] py-0">Date</TableHead>
-                          <TableHead className="h-9 text-[11px] py-0">In</TableHead>
-                          <TableHead className="h-9 text-[11px] py-0">Out</TableHead>
-                          <TableHead className="h-9 text-[11px] py-0">Hrs</TableHead>
-                          <TableHead className="h-9 text-[11px] py-0">Status</TableHead>
+                        <TableRow className="bg-foreground/3 hover:bg-foreground/3">
+                          <TableHead className="h-9 text-[10px] py-0 font-display font-semibold tracking-[0.1em] uppercase text-foreground/55">Date</TableHead>
+                          <TableHead className="h-9 text-[10px] py-0 font-display font-semibold tracking-[0.1em] uppercase text-foreground/55">In</TableHead>
+                          <TableHead className="h-9 text-[10px] py-0 font-display font-semibold tracking-[0.1em] uppercase text-foreground/55">Out</TableHead>
+                          <TableHead className="h-9 text-[10px] py-0 font-display font-semibold tracking-[0.1em] uppercase text-foreground/55">Hrs</TableHead>
+                          <TableHead className="h-9 text-[10px] py-0 font-display font-semibold tracking-[0.1em] uppercase text-foreground/55">Status</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {attendance.map(record => (
-                          <TableRow key={record.id}
+                          <TableRow
+                            key={record.id}
                             className={
-                              record.missed_clock_in && record.missed_clock_out ? "bg-red-500/5" :
-                              record.missed_clock_in || record.missed_clock_out ? "bg-amber-500/5" : ""
-                            }>
-                            <TableCell className="py-2 text-xs font-medium">{fmtDate(record.date)}</TableCell>
-                            <TableCell className={`py-2 text-xs font-mono ${record.missed_clock_in ? "text-red-400" : "text-emerald-400"}`}>
+                              record.missed_clock_in && record.missed_clock_out ? "bg-destructive/5" :
+                              record.missed_clock_in || record.missed_clock_out ? "bg-amc-yellow/5" : ""
+                            }
+                          >
+                            <TableCell className="py-2 text-[12px] font-medium">{fmtDate(record.date)}</TableCell>
+                            <TableCell className={`py-2 text-[12px] font-mono tabular-nums ${record.missed_clock_in ? "text-destructive" : "text-foreground/75"}`}>
                               {fmtTime(record.clock_in)}
                             </TableCell>
-                            <TableCell className={`py-2 text-xs font-mono ${record.missed_clock_out ? "text-amber-400" : "text-foreground"}`}>
+                            <TableCell className={`py-2 text-[12px] font-mono tabular-nums ${record.missed_clock_out ? "text-destructive" : "text-foreground/75"}`}>
                               {fmtTime(record.clock_out)}
                             </TableCell>
-                            <TableCell className="py-2 text-xs">
+                            <TableCell className="py-2 text-[12px] tabular-nums">
                               {record.hours_worked > 0 ? `${record.hours_worked.toFixed(1)}h` : "—"}
                             </TableCell>
                             <TableCell className="py-2"><StatusPill record={record} /></TableCell>
@@ -301,37 +332,46 @@ function EmployeeSheet({ emp, attendance, credit, open, onClose }: {
             </ScrollArea>
           </TabsContent>
 
+          {/* ── Credits tab ─────────────────────────────────────────── */}
           <TabsContent value="credits" className="flex-1 min-h-0 mt-0">
             <ScrollArea className="h-full px-6 pb-6">
               <div className="space-y-4 pt-2">
-                <div className="rounded-xl border overflow-hidden divide-y divide-border">
+                <div className="rounded-md border border-border overflow-hidden divide-y divide-border">
                   {[
-                    { label: "Initial Credit",  value: `GH₵ ${credit?.initial_credit ?? 1500}`,  color: "text-foreground",  desc: "Base monthly allocation" },
-                    { label: "Deductions",      value: `-GH₵ ${credit?.deductions ?? 0}`,        color: "text-red-400",     desc: "Missed punch penalties" },
-                    { label: "Overtime Bonus",  value: `+GH₵ ${credit?.overtime_credits ?? 0}`,  color: "text-emerald-400", desc: "Approved overtime credits" },
+                    { label: "Initial credit",  value: `GH₵ ${credit?.initial_credit ?? 1500}`,  tone: "neutral", desc: "Base monthly allocation" },
+                    { label: "Deductions",      value: `−GH₵ ${credit?.deductions ?? 0}`,        tone: "warn",    desc: "Missed punch penalties" },
+                    { label: "Overtime bonus",  value: `+GH₵ ${credit?.overtime_credits ?? 0}`,  tone: "good",    desc: "Approved overtime credits" },
                   ].map(item => (
                     <div key={item.label} className="flex items-center justify-between px-4 py-3">
                       <div>
-                        <p className="text-sm font-medium">{item.label}</p>
-                        <p className="text-xs text-muted-foreground">{item.desc}</p>
+                        <p className="text-[13px] font-medium">{item.label}</p>
+                        <p className="text-[11px] text-foreground/55">{item.desc}</p>
                       </div>
-                      <span className={`text-sm font-bold ${item.color}`}>{item.value}</span>
+                      <span className={`text-[13px] font-display font-bold tabular-nums
+                        ${item.tone === "warn" ? "text-destructive" : item.tone === "good" ? "text-success" : "text-foreground"}`}>
+                        {item.value}
+                      </span>
                     </div>
                   ))}
-                  <div className="flex items-center justify-between px-4 py-4 bg-muted/30">
+                  <div className="flex items-center justify-between px-4 py-4 bg-foreground/3">
                     <div>
-                      <p className="text-sm font-bold">Final Credit</p>
-                      <p className="text-xs text-muted-foreground">Net balance this month</p>
+                      <p className="text-[13px] font-display font-bold">Final credit</p>
+                      <p className="text-[11px] text-foreground/55">Net balance this month</p>
                     </div>
-                    <span className={`text-3xl font-black ${creditColor}`}>GH₵ {finalCredit}</span>
+                    <span className={`font-display text-[28px] font-bold tabular-nums
+                      ${finalCredit < 1300 ? "text-destructive" : finalCredit < 1500 ? "text-amc-yellow" : "text-foreground"}`}>
+                      GH₵ {finalCredit}
+                    </span>
                   </div>
                 </div>
-                <div className="bg-muted/40 rounded-xl p-4 space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium">Monthly Hours vs Target</span>
-                    <span className="text-muted-foreground text-xs">{totalHours.toFixed(1)}h / 180h</span>
+                <div className="bg-foreground/3 border border-border rounded-md p-4 space-y-2">
+                  <div className="flex items-center justify-between text-[13px]">
+                    <span className="font-medium">Monthly hours vs target</span>
+                    <span className="text-foreground/55 text-[12px] tabular-nums">
+                      {totalHours.toFixed(1)}h / 180h
+                    </span>
                   </div>
-                  <Progress value={Math.min(100, (totalHours / 180) * 100)} className="h-2" />
+                  <Progress value={Math.min(100, (totalHours / 180) * 100)} className="h-1.5" />
                 </div>
               </div>
             </ScrollArea>
@@ -349,58 +389,59 @@ const SCHEDULED_HOURS = 9;
 function OvertimeRow({ emp, overtimeRecords, onClick }: {
   emp: Employee; overtimeRecords: AttendanceRecord[]; onClick: () => void;
 }) {
-  const ac         = avatarColor(`${emp.first_name} ${emp.last_name}`);
-  const totalExtra = overtimeRecords.reduce((s, r) => s + Math.max(0, r.hours_worked - SCHEDULED_HOURS), 0);
-  const totalActual = overtimeRecords.reduce((s, r) => s + r.hours_worked, 0);
+  const locum       = isLocum(emp);
+  const totalExtra  = overtimeRecords.reduce((s, r) => s + Math.max(0, r.hours_worked - SCHEDULED_HOURS), 0);
 
   return (
     <button onClick={onClick}
-      className="w-full rounded-2xl border border-blue-500/20 bg-blue-500/5 px-4 py-3.5 hover:border-blue-500/40 hover:bg-blue-500/10 transition-all group text-left">
+      className="w-full rounded-md border border-border bg-card px-4 py-3.5 hover:border-foreground/30 transition-colors group text-left">
       <div className="flex items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className={`h-10 w-10 rounded-xl ${ac.bg} ring-1 ${ac.ring} flex items-center justify-center shrink-0`}>
-            <span className={`text-xs font-black ${ac.text}`}>{emp.first_name[0]}{emp.last_name[0]}</span>
-          </div>
+          <Avatar emp={emp} />
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-sm">{emp.first_name} {emp.last_name}</span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-display font-semibold text-[14px]">
+                {emp.first_name} {emp.last_name}
+              </span>
               {emp.is_department_head && (
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary">Head</span>
+                <span className="text-[10px] font-medium px-1.5 py-px rounded bg-foreground/8 text-foreground/75">Head</span>
+              )}
+              {locum && (
+                <span className="text-[10px] font-medium px-1.5 py-px rounded bg-amc-yellow/15 text-amc-yellow border border-amc-yellow/25">
+                  Locum
+                </span>
               )}
             </div>
-            <p className="text-xs text-muted-foreground">{emp.position} · {emp.emp_code}</p>
+            <p className="text-[12px] text-foreground/55 mt-0.5">{emp.position} · {emp.emp_code}</p>
           </div>
         </div>
         <div className="flex items-center gap-4 shrink-0">
           <div className="text-right hidden sm:block">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">OT Days</p>
-            <div className="flex items-center gap-1 justify-end">
-              <Flame className="h-3 w-3 text-blue-400" />
-              <span className="text-sm font-bold text-blue-400">{overtimeRecords.length}</span>
-            </div>
+            <p className="text-[10px] text-foreground/45 uppercase tracking-[0.1em] font-display font-semibold">OT days</p>
+            <span className="text-[14px] font-display font-bold tabular-nums">{overtimeRecords.length}</span>
           </div>
           <div className="text-right">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Extra Hours</p>
-            <span className="text-sm font-bold text-blue-400">+{totalExtra.toFixed(1)}h</span>
+            <p className="text-[10px] text-foreground/45 uppercase tracking-[0.1em] font-display font-semibold">Extra hrs</p>
+            <span className="text-[14px] font-display font-bold tabular-nums">+{totalExtra.toFixed(1)}h</span>
           </div>
-          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-blue-400 transition-colors" />
+          <ChevronRight className="h-4 w-4 text-foreground/30 group-hover:text-foreground/70 transition-colors" />
         </div>
       </div>
-      <div className="space-y-1.5 border-t border-blue-500/15 pt-2.5">
+      <div className="space-y-1 border-t border-border pt-2.5">
         {overtimeRecords.map(r => {
           const extra = Math.max(0, r.hours_worked - SCHEDULED_HOURS);
           return (
-            <div key={r.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-blue-500/8 border border-blue-500/15">
-              <span className="text-xs font-semibold w-28 shrink-0">
+            <div key={r.id} className="flex items-center justify-between px-3 py-1.5 rounded bg-foreground/3 border border-border/60">
+              <span className="text-[11px] font-medium w-28 shrink-0">
                 {new Date(r.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
               </span>
-              <div className="hidden sm:flex items-center gap-3 text-xs text-muted-foreground">
-                <span>In: <span className="font-mono text-foreground">{r.clock_in ? new Date(r.clock_in).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "—"}</span></span>
-                <span>Out: <span className="font-mono text-foreground">{r.clock_out ? new Date(r.clock_out).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "—"}</span></span>
+              <div className="hidden sm:flex items-center gap-3 text-[11px] text-foreground/55">
+                <span>In: <span className="font-mono text-foreground/80 tabular-nums">{r.clock_in ? new Date(r.clock_in).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "—"}</span></span>
+                <span>Out: <span className="font-mono text-foreground/80 tabular-nums">{r.clock_out ? new Date(r.clock_out).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "—"}</span></span>
               </div>
-              <div className="flex items-center gap-2 text-xs shrink-0">
-                <span className="text-muted-foreground">{r.hours_worked.toFixed(1)}h total</span>
-                <span className="flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-blue-500/15 border border-blue-500/25 font-bold text-blue-400 text-[11px]">
+              <div className="flex items-center gap-2 text-[11px] shrink-0">
+                <span className="text-foreground/55 tabular-nums">{r.hours_worked.toFixed(1)}h</span>
+                <span className="flex items-center gap-0.5 px-1.5 py-px rounded font-semibold tabular-nums">
                   <ArrowUp className="h-2.5 w-2.5" />+{extra.toFixed(1)}h
                 </span>
               </div>
@@ -422,83 +463,79 @@ function EmployeeRow({ emp, todayRecord, totalHours, finalCredit, missedCount, o
   missedCount: number;
   onClick: () => void;
 }) {
-  const ac = avatarColor(`${emp.first_name} ${emp.last_name}`);
+  const locum = isLocum(emp);
 
   const hoursColor =
-    totalHours < 36 ? "text-red-400" :
-    totalHours >= 45 ? "text-emerald-400" : "text-foreground";
+    totalHours < 36 ? "text-destructive" :
+    "text-foreground";
 
   const creditColor =
-    finalCredit < 1300 ? "text-red-400" :
-    finalCredit < 1500 ? "text-amber-400" : "text-emerald-400";
+    finalCredit < 1300 ? "text-destructive" :
+    finalCredit < 1500 ? "text-amc-yellow" :
+    "text-foreground";
 
   return (
     <button onClick={onClick}
-      className="w-full rounded-2xl border bg-card px-4 py-3.5 hover:border-primary/30 hover:bg-primary/5 transition-all group text-left">
+      className="w-full rounded-md border border-border bg-card px-4 py-3 hover:border-foreground/30 hover:bg-foreground/2 transition-colors group text-left">
       <div className="flex items-center gap-3">
 
-        {/* Avatar */}
-        <div className={`h-10 w-10 rounded-xl ${ac.bg} ring-1 ${ac.ring} flex items-center justify-center shrink-0`}>
-          <span className={`text-xs font-black ${ac.text}`}>
-            {emp.first_name[0]}{emp.last_name[0]}
-          </span>
-        </div>
+        <Avatar emp={emp} />
 
-        {/* Name + details */}
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-bold text-sm">{emp.first_name} {emp.last_name}</span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-display font-semibold text-[14px]">
+              {emp.first_name} {emp.last_name}
+            </span>
             {emp.is_department_head && (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+              <span className="text-[10px] font-medium px-1.5 py-px rounded bg-foreground/8 text-foreground/75">
                 Head
               </span>
             )}
+            {locum && (
+              <span className="text-[10px] font-medium px-1.5 py-px rounded bg-amc-yellow/15 text-amc-yellow border border-amc-yellow/25">
+                Locum
+              </span>
+            )}
             {missedCount > 0 && (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/20">
+              <span className="text-[10px] font-medium px-1.5 py-px rounded bg-destructive/10 text-destructive border border-destructive/20">
                 {missedCount} missed
               </span>
             )}
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
+          <p className="text-[12px] text-foreground/55 mt-0.5">
             {emp.position} · <span className="font-mono">{emp.emp_code}</span>
           </p>
         </div>
 
-        {/* Right side stats */}
         <div className="flex items-center gap-3 shrink-0">
 
-          {/* Today status */}
           <div className="hidden sm:block">
             {todayRecord
               ? <StatusPill record={todayRecord} />
-              : <span className="text-xs text-muted-foreground">No record</span>
+              : <span className="text-[11px] text-foreground/45">No record</span>
             }
           </div>
 
-          {/* Divider */}
-          <div className="hidden md:block h-8 w-px bg-border" />
+          <div className="hidden md:block h-7 w-px bg-border" />
 
-          {/* Hours */}
           <div className="hidden md:block text-right">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide leading-none mb-1">Week Hrs</p>
-            <span className={`text-sm font-bold ${hoursColor}`}>
+            <p className="text-[10px] text-foreground/45 uppercase tracking-[0.1em] font-display font-semibold leading-none mb-1">Week hrs</p>
+            <span className={`text-[14px] font-display font-bold tabular-nums ${hoursColor}`}>
               {totalHours.toFixed(1)}
-              <span className="text-[10px] text-muted-foreground font-normal"> / 45</span>
+              <span className="text-[10px] text-foreground/45 font-normal"> / 45</span>
             </span>
           </div>
 
-          {/* Divider */}
-          <div className="hidden md:block h-8 w-px bg-border" />
+          <div className="hidden md:block h-7 w-px bg-border" />
 
-          {/* Credits */}
           <div className="text-right">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide leading-none mb-1">Credits</p>
-            <span className={`text-sm font-bold ${creditColor}`}>
+            <p className="text-[10px] text-foreground/45 uppercase tracking-[0.1em] font-display font-semibold leading-none mb-1">Credits</p>
+            <span className={`text-[14px] font-display font-bold tabular-nums ${creditColor}`}>
               {finalCredit}
             </span>
           </div>
 
-          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0 ml-1" />
+          <ChevronRight className="h-4 w-4 text-foreground/30 group-hover:text-foreground/70 transition-colors shrink-0 ml-1" />
         </div>
       </div>
     </button>
@@ -512,16 +549,23 @@ const EmployeeList = ({
 }: EmployeeListProps) => {
   const [selected, setSelected] = useState<Employee | null>(null);
 
-  const visibleEmployees  = employees.slice(0, visibleCount);
-  const hasMore           = employees.length > visibleCount;
+  // Sort: regular staff first (alphabetically), locums last (alphabetically)
+  const sortedEmployees = useMemo(() => {
+    const regular = employees.filter(e => !isLocum(e));
+    const locums  = employees.filter(e =>  isLocum(e));
+    return [...regular, ...locums];
+  }, [employees]);
+
+  const visibleEmployees   = sortedEmployees.slice(0, visibleCount);
+  const hasMore            = sortedEmployees.length > visibleCount;
   const selectedAttendance = selected ? attendance.filter(a => a.employee_id === selected.id) : [];
-  const selectedCredit    = selected ? credits.find(c => c.employee_id === selected.id) : undefined;
-  const isOvertimeFilter  = activeFilter === "overtime";
+  const selectedCredit     = selected ? credits.find(c => c.employee_id === selected.id) : undefined;
+  const isOvertimeFilter   = activeFilter === "overtime";
 
   return (
     <>
-      <div className="space-y-2">
-        {visibleEmployees.map(emp => {
+      <div className="space-y-1.5">
+        {visibleEmployees.map((emp, idx) => {
           const empAtt      = attendance.filter(a => a.employee_id === emp.id);
           const empCredit   = credits.find(c => c.employee_id === emp.id);
           const todayRecord = empAtt[0];
@@ -529,34 +573,43 @@ const EmployeeList = ({
           const missedCount = empAtt.filter(a => a.missed_clock_in || a.missed_clock_out).length;
           const finalCredit = empCredit?.final_credit ?? 1500;
 
+          // Insert "Locum staff" divider before the first locum
+          const isFirstLocum =
+            isLocum(emp) && (idx === 0 || !isLocum(visibleEmployees[idx - 1]));
+
           if (isOvertimeFilter) {
             const overtimeRecords = empAtt.filter(a => a.is_overtime);
             if (overtimeRecords.length === 0) return null;
             return (
-              <OvertimeRow key={emp.id} emp={emp} overtimeRecords={overtimeRecords}
-                onClick={() => setSelected(emp)} />
+              <div key={emp.id}>
+                {isFirstLocum && <LocumDivider />}
+                <OvertimeRow emp={emp} overtimeRecords={overtimeRecords}
+                  onClick={() => setSelected(emp)} />
+              </div>
             );
           }
 
           return (
-            <EmployeeRow key={emp.id} emp={emp} todayRecord={todayRecord}
-              totalHours={totalHours} finalCredit={finalCredit} missedCount={missedCount}
-              onClick={() => setSelected(emp)} />
+            <div key={emp.id}>
+              {isFirstLocum && <LocumDivider />}
+              <EmployeeRow emp={emp} todayRecord={todayRecord}
+                totalHours={totalHours} finalCredit={finalCredit} missedCount={missedCount}
+                onClick={() => setSelected(emp)} />
+            </div>
           );
         })}
 
         {hasMore && (
-          <div className="flex justify-center pt-2">
-            <Button variant="outline" onClick={onSeeMore} className="gap-2">
-              See More <ChevronDown className="h-4 w-4" />
+          <div className="flex justify-center pt-3">
+            <Button variant="outline" onClick={onSeeMore} className="gap-2 font-display font-semibold">
+              See more <ChevronDown className="h-4 w-4" />
             </Button>
           </div>
         )}
 
-        {employees.length === 0 && (
-          <div className="text-center py-12 text-muted-foreground">
-            <AlertTriangle className="h-8 w-8 mx-auto mb-2 opacity-40" />
-            <p className="text-sm">No employees match the current filters.</p>
+        {sortedEmployees.length === 0 && (
+          <div className="text-center py-12 text-foreground/55">
+            <p className="text-[13px]">No employees match the current filters.</p>
           </div>
         )}
       </div>
@@ -571,5 +624,18 @@ const EmployeeList = ({
     </>
   );
 };
+
+// ─── Locum section divider ────────────────────────────────────────────────────
+
+function LocumDivider() {
+  return (
+    <div className="flex items-center gap-2 py-3 mt-2">
+      <span className="font-display text-[10px] tracking-[0.16em] uppercase text-amc-yellow font-semibold">
+        Locum staff
+      </span>
+      <span className="flex-1 h-px bg-amc-yellow/20" />
+    </div>
+  );
+}
 
 export default EmployeeList;
