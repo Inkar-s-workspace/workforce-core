@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { mockEmployees, mockAttendance } from "@/data/mockData";
-import { MessageSquare, Check, ArrowUpRight } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine,
@@ -50,7 +49,7 @@ function lateBy(expectedHour: number, expectedMin = 0): string {
   const expected = new Date();
   expected.setHours(expectedHour, expectedMin, 0, 0);
   const diff = Math.max(0, Math.round((now.getTime() - expected.getTime()) / 60000));
-  if (diff < 60) return `${diff} min late`;
+  if (diff < 60) return `${diff}m late`;
   const h = Math.floor(diff / 60);
   const m = diff % 60;
   return m === 0 ? `${h}h late` : `${h}h ${m}m late`;
@@ -104,6 +103,58 @@ function ChartTooltip({ active, payload }: any) {
   );
 }
 
+// ─── Ring chart ───────────────────────────────────────────────────────────────
+
+function MetricRing({
+  count, total, animatedCount,
+}: {
+  count: number;
+  total: number;
+  animatedCount: number;
+}) {
+  const size      = 96;
+  const stroke    = 6;
+  const radius    = (size - stroke) / 2;
+  const circ      = 2 * Math.PI * radius;
+  const pct       = total > 0 ? count / total : 0;
+  const dashOffset = circ - circ * pct;
+
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="hsl(var(--foreground) / 0.08)"
+          strokeWidth={stroke}
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="hsl(var(--destructive))"
+          strokeWidth={stroke}
+          strokeDasharray={circ}
+          strokeDashoffset={dashOffset}
+          strokeLinecap="round"
+          className="transition-all duration-700 ease-out"
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="font-display font-bold text-[28px] leading-none text-destructive tabular-nums">
+          {animatedCount}
+        </span>
+        <span className="text-[10px] text-foreground/45 mt-1 tabular-nums">
+          {count}/{total}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function Welcome() {
@@ -116,8 +167,7 @@ export default function Welcome() {
     .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
     .join(" ");
 
-  const [resolved, setResolved] = useState<Set<string>>(new Set());
-  const [exiting,  setExiting]  = useState<Set<string>>(new Set());
+  const [resolved] = useState<Set<string>>(new Set());
 
   const trendData = useTrendData();
   const weekAvg   = Math.round(trendData.reduce((s, d) => s + d.rate, 0) / trendData.length);
@@ -141,80 +191,79 @@ export default function Welcome() {
   const expectedToday  = todayAtt.length || mockEmployees.length;
   const visibleMissing = missingToday.filter((e) => !resolved.has(e.id));
 
-  const handleResolve = (id: string) => {
-    setExiting((prev) => new Set(prev).add(id));
-    setTimeout(() => {
-      setResolved((prev) => new Set(prev).add(id));
-      setExiting((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-    }, 320);
-  };
-
   const fmtDate = new Date().toLocaleDateString("en-GB", {
     weekday: "long", day: "numeric", month: "long",
   });
 
-  // ─── UI ─────────────────────────────────────────────────────────────────────
-
   return (
     <div className="min-h-screen text-foreground antialiased">
-      <div className="max-w-[880px] mx-auto px-6 md:px-12 pt-14 md:pt-24 pb-16">
+      <div className="max-w-[1100px] mx-auto px-6 md:px-12 pt-12 md:pt-16 pb-16">
 
-        {/* ── Date strip ──────────────────────────────────────────────── */}
-        <header className="mb-14 md:mb-20">
-          <p className="font-bold text-[16px] md:text-[18px] tracking-[0.16em] uppercase text-foreground/60 leading-none">
+        {/* Top row: greeting + date */}
+        <header className="flex items-start justify-between mb-10">
+          <div>
+            <p className="text-[19px] md:text-[21px] text-foreground/75 leading-snug">
+              {greeting}, <span className="font-display font-semibold text-foreground">{niceName}</span>.
+            </p>
+          </div>
+          <p className="font-bold text-[12px] md:text-[13px] tracking-[0.16em] uppercase text-foreground/55 leading-none mt-2">
             {fmtDate}
           </p>
         </header>
 
-        {/* ── Greeting ──────────────────────────────────────────────────── */}
-        <p className="text-[19px] md:text-[21px] text-foreground/75 leading-snug mb-10">
-          {greeting}, <span className="font-display font-semibold text-foreground">{niceName}</span>.
-        </p>
+        {/* Heading */}
+        <h1 className="font-display font-bold text-[36px] md:text-[44px] tracking-tight leading-[1.05] mb-8">
+          Attendance overview
+        </h1>
 
-        {/* ── The headline moment ───────────────────────────────────────── */}
-        <section className="mb-16">
+        {/* Ring + summary */}
+        <section className="mb-12">
           {visibleMissing.length === 0 ? (
-            <div>
-              <h1 className="font-display text-[58px] md:text-[78px] leading-[0.95] tracking-tight">
-                Everyone's <span className="text-amc-yellow">here</span>.
-              </h1>
-              <p className="mt-7 text-[14px] text-foreground/55 max-w-md leading-relaxed">
-                All {presentToday} expected staff have clocked in this morning.
-                Nothing needs your attention right now.
-              </p>
+            <div className="flex items-center gap-5">
+              <div className="w-24 h-24 rounded-full bg-success/10 ring-4 ring-success/15 flex flex-col items-center justify-center shrink-0">
+                <span className="font-display font-bold text-[28px] leading-none text-success">
+                  {presentToday}
+                </span>
+                <span className="text-[10px] text-foreground/55 mt-1 tabular-nums">
+                  {presentToday}/{expectedToday}
+                </span>
+              </div>
+              <div>
+                <p className="font-display font-semibold text-[18px] text-foreground leading-tight">
+                  Everyone's here.
+                </p>
+                <p className="text-[13px] text-foreground/55 mt-1">
+                  All {presentToday} expected staff have clocked in this morning.
+                </p>
+              </div>
             </div>
           ) : (
-            <div>
-              <h1 className="font-display leading-[0.92] tracking-tight">
-                <span className="block text-[84px] md:text-[120px] text-destructive tabular-nums font-bold">
-                  <CountUp value={visibleMissing.length} />
-                </span>
-                <span className="block text-[26px] md:text-[34px] mt-2 max-w-[14ch] font-semibold text-foreground">
-                  {visibleMissing.length === 1 ? "person hasn't" : "people haven't"} clocked in yet.
-                </span>
-              </h1>
-
-              <p className="mt-8 text-[13px] text-foreground/55 flex items-center gap-3">
-                <span>
-                  <span className="text-foreground font-semibold">{presentToday}</span> of {expectedToday} present
-                </span>
-                <span className="h-px w-6 bg-foreground/15" />
-                <span className="text-foreground/50">
-                  {Math.round((presentToday / Math.max(1, expectedToday)) * 100)}% on time
-                </span>
-              </p>
+            <div className="flex items-center gap-5">
+              <MetricRing
+                count={visibleMissing.length}
+                total={expectedToday}
+                animatedCount={visibleMissing.length}
+              />
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] tracking-[0.16em] uppercase text-foreground/45 font-display font-semibold mb-1.5">
+                  Currently absent
+                </p>
+                <p className="font-display font-semibold text-[18px] text-foreground leading-tight">
+                  {visibleMissing.length} staff {visibleMissing.length === 1 ? "hasn't" : "haven't"} clocked in yet.
+                </p>
+                <p className="text-[13px] text-foreground/55 mt-1.5">
+                  <span className="font-semibold text-foreground tabular-nums">{presentToday}</span>{" "}
+                  <span className="text-foreground/45">present</span>
+                </p>
+              </div>
             </div>
           )}
         </section>
 
-        {/* ── Missing list ──────────────────────────────────────────────── */}
+        {/* Missing list */}
         {visibleMissing.length > 0 && (
           <section className="mb-16">
-            <div className="flex items-baseline justify-between mb-5 pb-3">
+            <div className="flex items-baseline justify-between mb-4">
               <h2 className="font-display text-[11px] tracking-[0.16em] uppercase text-foreground/55 font-semibold">
                 Missing
               </h2>
@@ -222,28 +271,31 @@ export default function Welcome() {
                 {visibleMissing.length} {visibleMissing.length === 1 ? "person" : "people"}
               </span>
             </div>
-            <div className="rule-paper mb-1" />
+            <div className="rule-paper mb-3" />
 
-            <ul className="divide-y divide-border/70">
+            <div className="space-y-1.5">
               {visibleMissing.map((emp, idx) => {
                 const locum = isLocum(emp);
                 const expectedHour = emp.department_name?.includes("Emergency") ? 8 : 7;
-                const isExiting = exiting.has(emp.id);
 
                 return (
-                  <li
+                  <div
                     key={emp.id}
-                    className="group transition-all duration-300"
+                    className="bg-card border border-border rounded-md px-4 py-3 hover:border-foreground/20 transition-colors"
                     style={{
-                      animation: isExiting
-                        ? "slide-out-right 0.32s ease-in forwards"
-                        : `fade-in-up 0.5s ${idx * 50}ms ease-out backwards`,
+                      animation: `fade-in-up 0.5s ${idx * 50}ms ease-out backwards`,
                     }}
                   >
-                    <div className="flex items-center gap-4 py-4">
-                      {/* AVATAR — unified cream + AMC blue ink, locum keeps yellow */}
+                    <div className="flex items-center gap-4">
+
+                      <div className="hidden sm:block shrink-0">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-destructive/10 text-destructive border border-destructive/20 tracking-wide uppercase">
+                          Late
+                        </span>
+                      </div>
+
                       <div
-                        className={`w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-display font-semibold shrink-0 transition-all
+                        className={`w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-display font-semibold shrink-0
                           ${locum
                             ? "bg-amc-yellow/15 text-amc-yellow ring-1 ring-amc-yellow/30"
                             : "bg-[#EEE8DD] text-amc-blue ring-1 ring-[#E0D8C8]"
@@ -258,51 +310,43 @@ export default function Welcome() {
                             {emp.first_name} {emp.last_name}
                           </span>
                           {locum && (
-                            <span className="text-[10px] font-medium px-1.5 py-px rounded-sm text-amc-yellow bg-amc-yellow/12">
+                            <span className="text-[10px] font-medium px-1.5 py-px rounded-sm text-amc-yellow bg-amc-yellow/15">
                               Locum
                             </span>
                           )}
                         </div>
                         <p className="text-[12px] text-foreground/55 mt-0.5 truncate">
                           {emp.department_name}
-                          <span className="text-foreground/25 mx-1.5">·</span>
+                        </p>
+                      </div>
+
+                      <div className="hidden md:block text-right shrink-0">
+                        <p className="text-[10px] text-foreground/45 uppercase tracking-[0.1em] font-display font-semibold leading-none mb-1">
+                          Absence
+                        </p>
+                        <p className="text-[13px] font-display font-semibold text-destructive tabular-nums leading-none">
+                          {lateBy(expectedHour)}
+                        </p>
+                        <p className="text-[10px] text-foreground/45 mt-1 tabular-nums">
                           expected {expectedHour}:00
                         </p>
                       </div>
 
-                      <div className="hidden sm:flex flex-col items-end shrink-0 mr-1">
-                        <p className="text-[12px] font-semibold text-destructive tabular-nums">
-                          {lateBy(expectedHour)}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-1 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
-                        <button
-                          className="flex items-center gap-1 px-2.5 py-1.5 rounded text-[12px] text-foreground/70 hover:text-foreground hover:bg-foreground/5 transition-colors"
-                          onClick={() => alert(`Message ${emp.first_name} (placeholder)`)}
-                          aria-label={`Message ${emp.first_name}`}
-                        >
-                          <MessageSquare className="h-3.5 w-3.5" />
-                          <span className="hidden md:inline">Message</span>
-                        </button>
-                        <button
-                          className="flex items-center gap-1 px-2.5 py-1.5 rounded text-[12px] text-foreground/70 hover:text-success hover:bg-success/10 transition-colors"
-                          onClick={() => handleResolve(emp.id)}
-                          aria-label={`Resolve ${emp.first_name}`}
-                        >
-                          <Check className="h-3.5 w-3.5" />
-                          <span className="hidden md:inline">Resolve</span>
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => navigate(`/department/all`)}
+                        className="shrink-0 px-3 py-1.5 rounded-full border border-border bg-background text-[11px] font-display font-semibold tracking-wide uppercase text-foreground/70 hover:text-foreground hover:border-foreground/30 transition-colors"
+                      >
+                        View profile
+                      </button>
                     </div>
-                  </li>
+                  </div>
                 );
               })}
-            </ul>
+            </div>
           </section>
         )}
 
-        {/* ── 7-day attendance trend ────────────────────────────────────── */}
+        {/* 7-day trend */}
         <section className="mb-16">
           <div className="flex items-baseline justify-between mb-5">
             <h2 className="font-display text-[11px] tracking-[0.16em] uppercase text-foreground/55 font-semibold">
@@ -417,63 +461,11 @@ export default function Welcome() {
           </div>
         </section>
 
-        {/* ── Secondary nav ─────────────────────────────────────────────── */}
-        <nav className="pt-8">
-          <div className="rule-paper mb-6" />
-          <p className="font-display text-[11px] tracking-[0.16em] uppercase text-foreground/40 font-semibold mb-4">
-            Or jump to
-          </p>
-          <ul className="space-y-1">
-            <NavLinkRow
-              label="Full team roster"
-              detail={`${mockEmployees.length} people across all departments`}
-              onClick={() => navigate("/department/all")}
-            />
-            <NavLinkRow
-              label="Duty roster"
-              detail="This month's schedule"
-              onClick={() => navigate("/roster")}
-            />
-            <NavLinkRow
-              label="Reports"
-              detail="Export attendance and credits"
-              onClick={() => navigate("/reports")}
-            />
-          </ul>
-        </nav>
-
-        <p className="font-display text-[10px] tracking-[0.20em] uppercase text-foreground/30 text-center mt-24 font-semibold">
+        <p className="font-display text-[10px] tracking-[0.20em] uppercase text-foreground/30 text-center mt-20 font-semibold">
           Accra Medical Centre · Workforce
         </p>
 
       </div>
     </div>
-  );
-}
-
-// ─── Small sub-component ──────────────────────────────────────────────────────
-
-function NavLinkRow({
-  label, detail, onClick,
-}: {
-  label: string;
-  detail: string;
-  onClick: () => void;
-}) {
-  return (
-    <li>
-      <button
-        onClick={onClick}
-        className="group w-full flex items-baseline justify-between py-3 text-left border-b border-transparent hover:border-foreground/15 transition-colors"
-      >
-        <span className="flex items-baseline gap-3">
-          <span className="text-[15px] font-display font-semibold text-foreground group-hover:text-destructive transition-colors">
-            {label}
-          </span>
-          <span className="text-[12px] text-foreground/45">{detail}</span>
-        </span>
-        <ArrowUpRight className="h-3.5 w-3.5 text-foreground/25 group-hover:text-foreground/70 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-all" />
-      </button>
-    </li>
   );
 }

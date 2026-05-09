@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Building2, Home, Settings, Download, BookOpen, LogOut,
-  CalendarDays, BarChart3, ChevronDown,
+  CalendarDays, BarChart3, ChevronDown, PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -20,7 +20,6 @@ const roleLabels: Record<string, string> = {
   admin:           "Admin",
 };
 
-// Metrics sub-items — used for the expandable group
 const METRIC_LINKS = [
   { to: "/metrics/punctuality",  label: "Punctuality rate"  },
   { to: "/metrics/absenteeism",  label: "Absenteeism rate"  },
@@ -28,38 +27,67 @@ const METRIC_LINKS = [
   { to: "/metrics/overtime",     label: "Overtime rate"     },
 ];
 
+const METRICS_DEFAULT = "/metrics/punctuality";
+
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, toggleSidebar } = useSidebar();
   const collapsed = state === "collapsed";
   const { user, role, signOut } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const canViewReports = role === "hr" || role === "admin";
 
-  // Metrics group expands automatically when on a metrics page
   const onMetricsPage = location.pathname.startsWith("/metrics");
   const [metricsOpen, setMetricsOpen] = useState(onMetricsPage);
+
+  // Behavior: collapsed → navigate; expanded → toggle the dropdown
+  const handleMetricsClick = () => {
+    if (collapsed) {
+      navigate(METRICS_DEFAULT);
+    } else {
+      setMetricsOpen(o => !o);
+    }
+  };
 
   return (
     <Sidebar collapsible="icon">
 
-      {/* ── Brand mark ─────────────────────────────────────────────────── */}
-      <SidebarHeader className="px-3 pt-5 pb-4">
-        <NavLink to="/" className="flex items-center gap-3 group">
-          <div className="h-9 w-9 rounded-lg bg-amc-yellow/15 ring-1 ring-amc-yellow/30 flex items-center justify-center shrink-0 group-hover:bg-amc-yellow/25 transition-colors">
-            <span className="font-display font-bold text-amc-yellow text-base leading-none">A</span>
-          </div>
-          {!collapsed && (
-            <div className="min-w-0">
-              <p className="font-display font-bold text-[13px] leading-tight text-sidebar-foreground tracking-tight">
-                Accra Medical
-              </p>
-              <p className="text-[11px] text-sidebar-foreground/55 leading-tight tracking-wide">
-                Workforce
-              </p>
-            </div>
-          )}
-        </NavLink>
+      {/* ── Brand mark + collapse toggle ─────────────────────────────── */}
+      <SidebarHeader className={collapsed ? "px-2 pt-5 pb-4" : "px-4 pt-6 pb-5"}>
+        <div className={collapsed ? "flex flex-col items-center gap-3" : "flex items-start justify-between gap-2"}>
+          <NavLink to="/" className="flex items-center gap-2.5 group min-w-0">
+            {collapsed ? (
+              <img
+                src="/amc-sun.png"
+                alt="AMC"
+                className="h-10 w-10 object-contain shrink-0"
+                draggable={false}
+              />
+            ) : (
+              <img
+                src="/amc-logo.png"
+                alt="Accra Medical Centre"
+                className="h-14 w-auto object-contain object-left max-w-full group-hover:opacity-90 transition-opacity"
+                draggable={false}
+              />
+            )}
+          </NavLink>
+
+          <button
+            onClick={toggleSidebar}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="shrink-0 p-1.5 rounded-md text-sidebar-foreground/45 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 transition-colors"
+          >
+            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </button>
+        </div>
+
+        {!collapsed && (
+          <p className="text-[10px] tracking-[0.16em] uppercase text-sidebar-foreground/40 mt-3 ml-0.5 font-medium">
+            Workforce
+          </p>
+        )}
       </SidebarHeader>
 
       {/* ── Navigation ─────────────────────────────────────────────────── */}
@@ -79,19 +107,19 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* METRICS — expandable */}
+        {/* METRICS */}
         {!collapsed && <SectionLabel className="mt-6">Metrics</SectionLabel>}
         <SidebarGroup className="p-0">
           <SidebarGroupContent>
             <SidebarMenu className="gap-0.5">
 
-              {/* Group header — clicking toggles expansion */}
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  onClick={() => setMetricsOpen(o => !o)}
-                  className={`group/nav flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors w-full
+                  onClick={handleMetricsClick}
+                  title={collapsed ? "Metrics" : undefined}
+                  className={`group/nav flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors w-full relative
                     ${onMetricsPage
-                      ? "bg-sidebar-accent text-sidebar-foreground font-medium"
+                      ? "bg-sidebar-accent text-sidebar-foreground font-medium before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-[2px] before:rounded-r before:bg-amc-yellow"
                       : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
                     }`}
                 >
@@ -107,7 +135,6 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              {/* Sub-items — only when expanded and not collapsed */}
               {metricsOpen && !collapsed && (
                 <div className="ml-3 pl-3 border-l border-sidebar-border/60 mt-0.5 mb-1 space-y-0.5">
                   {METRIC_LINKS.map(m => (
@@ -206,6 +233,7 @@ function NavItem({
         <NavLink
           to={to}
           end={end}
+          title={collapsed ? label : undefined}
           className="group/nav flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 transition-colors relative"
           activeClassName="!bg-sidebar-accent !text-sidebar-foreground font-medium before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-[2px] before:rounded-r before:bg-amc-yellow"
         >

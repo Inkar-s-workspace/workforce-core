@@ -1,52 +1,36 @@
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { ReactNode } from "react";
+import { useLocation } from "react-router-dom";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Sparkles } from "lucide-react";
-import OvertimePanel from "@/components/OvertimePanel";
+import { OvertimePanel } from "@/components/OvertimePanel";
+import { QuickAsk } from "@/pages/QuickAsk";
 
-export default function AppLayout() {
-  const navigate = useNavigate();
+interface AppLayoutProps {
+  children: ReactNode;
+}
+
+export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
+  const showQuickAsk = location.pathname !== "/quick-ask";
 
   return (
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background">
+    <SidebarProvider defaultOpen>
+      <div className="flex min-h-screen w-full bg-background">
         <AppSidebar />
 
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <div className="flex-1 flex flex-col min-w-0">
 
-          {/* ── Top bar — minimal, sticky, AMC-themed ─────────────────────── */}
-          <header className="h-12 flex items-center bg-background/80 backdrop-blur sticky top-0 z-10 px-4 border-b border-border/60">
-
-            {/* Left — sidebar toggle */}
-            <div className="flex items-center gap-3">
-              <SidebarTrigger className="text-foreground/60 hover:text-foreground" />
-            </div>
-
-            {/* Center — empty, lets pages own their headers */}
-            <div className="flex-1" />
-
-            {/* Right — quick AI ask + overtime bell */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => navigate("/quick-ask")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors
-                  ${location.pathname === "/quick-ask"
-                    ? "bg-amc-yellow/15 text-foreground"
-                    : "text-foreground/60 hover:text-foreground hover:bg-foreground/5"
-                  }`}
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                Quick Ask
-              </button>
-              <OvertimePanel />
-            </div>
-
+          {/* Minimal top bar — sits over the page, holds Quick Ask + Overtime */}
+          <header className="h-12 px-6 flex items-center justify-end gap-1 border-b border-foreground/5 bg-background/60 backdrop-blur-sm sticky top-0 z-30">
+            {showQuickAsk && <QuickAsk />}
+            <OvertimePanel />
           </header>
 
-          <main className="flex-1 min-w-0 overflow-x-hidden">
-            <Outlet />
+          {/* Main page content */}
+          <main className="flex-1 min-w-0">
+            {children}
           </main>
+
         </div>
       </div>
     </SidebarProvider>

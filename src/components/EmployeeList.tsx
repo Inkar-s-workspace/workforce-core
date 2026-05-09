@@ -1,11 +1,7 @@
 import { useState, useMemo } from "react";
 import { Employee, AttendanceRecord, CreditBalance } from "@/types/attendance";
 import type { AttendanceFilter } from "@/types/attendance";
-import {
-  Clock, AlertTriangle, ChevronDown, Hash, Calendar, CheckCircle2,
-  XCircle, TrendingUp, Briefcase, Shield, ChevronRight, Building2,
-  ArrowUp,
-} from "lucide-react";
+import { ChevronDown, ChevronRight, ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -40,7 +36,6 @@ function fmtDate(iso: string) {
   });
 }
 
-// Locum detection
 function isLocum(emp: Employee) {
   return (
     emp.emp_code?.startsWith("AMC/LOC/") ||
@@ -49,49 +44,48 @@ function isLocum(emp: Employee) {
   );
 }
 
-// ─── Status pill — calmer, AMC palette ────────────────────────────────────────
+// ─── Status pill — text only ──────────────────────────────────────────────────
 
 function StatusPill({ record }: { record: AttendanceRecord }) {
   if (record.missed_clock_in && record.missed_clock_out)
     return (
-      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium bg-destructive/10 text-destructive border border-destructive/20">
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-destructive/10 text-destructive border border-destructive/20">
         Missed both
       </span>
     );
   if (record.missed_clock_in)
     return (
-      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium bg-destructive/10 text-destructive border border-destructive/20">
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-destructive/10 text-destructive border border-destructive/20">
         No clock-in
       </span>
     );
   if (record.missed_clock_out)
     return (
-      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium bg-amc-yellow/15 text-amc-yellow border border-amc-yellow/25">
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-amc-yellow/15 text-amc-yellow border border-amc-yellow/25">
         No clock-out
       </span>
     );
   if (record.is_overtime)
     return (
-      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium bg-foreground/8 text-foreground/75 border border-foreground/15">
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-foreground/8 text-foreground/75 border border-foreground/15">
         Overtime
       </span>
     );
   return (
-    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium bg-success/10 text-success border border-success/20">
+    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-success/10 text-success border border-success/20">
       Present
     </span>
   );
 }
 
-// ─── Info tile (used in detail sheet) ─────────────────────────────────────────
+// ─── Info tile (no icons, just label + value) ─────────────────────────────────
 
-function InfoTile({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
+function InfoTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-foreground/3 border border-border rounded-md p-3 space-y-1">
-      <div className="flex items-center gap-1.5 text-foreground/55">
-        <Icon className="h-3 w-3" />
-        <span className="text-[10px] font-display font-semibold uppercase tracking-[0.12em]">{label}</span>
-      </div>
+      <span className="text-[10px] font-display font-semibold uppercase tracking-[0.12em] text-foreground/55">
+        {label}
+      </span>
       <p className="text-[13px] font-display font-semibold truncate">{value}</p>
     </div>
   );
@@ -112,7 +106,7 @@ function StatTile({ label, value, tone = "neutral" }: {
   );
 }
 
-// ─── Avatar — unified for all non-locum, yellow for locum ─────────────────────
+// ─── Avatar ──────────────────────────────────────────────────────────────────
 
 function Avatar({ emp, size = "md" }: { emp: Employee; size?: "sm" | "md" | "lg" }) {
   const locum = isLocum(emp);
@@ -193,15 +187,15 @@ function EmployeeSheet({ emp, attendance, credit, open, onClose }: {
             <TabsTrigger value="credits" className="flex-1">Credits</TabsTrigger>
           </TabsList>
 
-          {/* ── Profile tab ─────────────────────────────────────────── */}
+          {/* Profile tab */}
           <TabsContent value="profile" className="flex-1 min-h-0 mt-0">
             <ScrollArea className="h-full px-6 pb-6">
               <div className="space-y-5 pt-2">
                 <div className="grid grid-cols-2 gap-2">
-                  <InfoTile icon={Hash}      label="Code"       value={emp.emp_code} />
-                  <InfoTile icon={Building2} label="Department" value={emp.department_name} />
-                  <InfoTile icon={Briefcase} label="Position"   value={emp.position ?? "—"} />
-                  <InfoTile icon={Shield}    label="Role"       value={locum ? "Locum" : emp.is_department_head ? "Dept Head" : "Staff"} />
+                  <InfoTile label="Code"       value={emp.emp_code} />
+                  <InfoTile label="Department" value={emp.department_name} />
+                  <InfoTile label="Position"   value={emp.position ?? "—"} />
+                  <InfoTile label="Role"       value={locum ? "Locum" : emp.is_department_head ? "Dept Head" : "Staff"} />
                 </div>
                 <Separator />
 
@@ -216,23 +210,13 @@ function EmployeeSheet({ emp, attendance, credit, open, onClose }: {
                       {todayRec ? (
                         <div className="rounded-md border border-border overflow-hidden divide-y divide-border">
                           <div className="flex items-center justify-between px-4 py-3">
-                            <span className="text-[13px] flex items-center gap-2">
-                              {todayRec.missed_clock_in
-                                ? <XCircle className="h-3.5 w-3.5 text-destructive" />
-                                : <CheckCircle2 className="h-3.5 w-3.5 text-success" />}
-                              Clock-in
-                            </span>
+                            <span className="text-[13px]">Clock-in</span>
                             <span className={`text-[13px] font-mono font-semibold tabular-nums ${todayRec.missed_clock_in ? "text-destructive" : "text-foreground"}`}>
                               {fmtTime(todayRec.clock_in)}
                             </span>
                           </div>
                           <div className="flex items-center justify-between px-4 py-3">
-                            <span className="text-[13px] flex items-center gap-2">
-                              {todayRec.missed_clock_out
-                                ? <XCircle className="h-3.5 w-3.5 text-destructive" />
-                                : <CheckCircle2 className="h-3.5 w-3.5 text-success" />}
-                              Clock-out
-                            </span>
+                            <span className="text-[13px]">Clock-out</span>
                             <span className={`text-[13px] font-mono font-semibold tabular-nums ${todayRec.missed_clock_out ? "text-destructive" : "text-foreground"}`}>
                               {fmtTime(todayRec.clock_out)}
                             </span>
@@ -277,7 +261,7 @@ function EmployeeSheet({ emp, attendance, credit, open, onClose }: {
             </ScrollArea>
           </TabsContent>
 
-          {/* ── Attendance tab ──────────────────────────────────────── */}
+          {/* Attendance tab */}
           <TabsContent value="attendance" className="flex-1 min-h-0 mt-0">
             <ScrollArea className="h-full px-6 pb-6">
               <div className="space-y-4 pt-2">
@@ -332,7 +316,7 @@ function EmployeeSheet({ emp, attendance, credit, open, onClose }: {
             </ScrollArea>
           </TabsContent>
 
-          {/* ── Credits tab ─────────────────────────────────────────── */}
+          {/* Credits tab */}
           <TabsContent value="credits" className="flex-1 min-h-0 mt-0">
             <ScrollArea className="h-full px-6 pb-6">
               <div className="space-y-4 pt-2">
@@ -549,7 +533,6 @@ const EmployeeList = ({
 }: EmployeeListProps) => {
   const [selected, setSelected] = useState<Employee | null>(null);
 
-  // Sort: regular staff first (alphabetically), locums last (alphabetically)
   const sortedEmployees = useMemo(() => {
     const regular = employees.filter(e => !isLocum(e));
     const locums  = employees.filter(e =>  isLocum(e));
@@ -573,7 +556,6 @@ const EmployeeList = ({
           const missedCount = empAtt.filter(a => a.missed_clock_in || a.missed_clock_out).length;
           const finalCredit = empCredit?.final_credit ?? 1500;
 
-          // Insert "Locum staff" divider before the first locum
           const isFirstLocum =
             isLocum(emp) && (idx === 0 || !isLocum(visibleEmployees[idx - 1]));
 
