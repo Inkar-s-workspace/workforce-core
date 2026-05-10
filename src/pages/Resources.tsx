@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 
 type ResourceKind = "regulation" | "certification";
 
@@ -158,7 +157,6 @@ const CERTIFICATIONS: Resource[] = [
 ];
 
 export default function Resources() {
-  const navigate = useNavigate();
   const [tab, setTab] = useState<ResourceKind>("regulation");
 
   const items = tab === "regulation" ? REGULATIONS : CERTIFICATIONS;
@@ -178,24 +176,6 @@ export default function Resources() {
           Regulations, certifications, and frameworks AMC operates under.
         </p>
       </header>
-
-      {/* Quick Ask callout — text only, no icon */}
-      <div className="mb-10 p-4 bg-foreground/3 border border-border rounded-md">
-        <p className="text-[13px] font-medium text-foreground mb-1">
-          Need guidance on a regulation?
-        </p>
-        <p className="text-[12px] text-foreground/65 leading-relaxed">
-          Open{" "}
-          <button
-            onClick={() => navigate("/quick-ask")}
-            className="text-foreground font-semibold underline decoration-foreground/30 hover:decoration-foreground transition-colors"
-          >
-            Quick Ask
-          </button>{" "}
-          to ask any compliance question — for example,{" "}
-          <span className="text-foreground/80 italic">"What does HIPAA require for attendance records?"</span>
-        </p>
-      </div>
 
       {/* Tab toggle */}
       <div className="mb-8">

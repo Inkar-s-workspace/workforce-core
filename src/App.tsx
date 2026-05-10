@@ -10,7 +10,6 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import AppLayout from "./components/AppLayout";
 import Welcome from "./pages/Welcome";
 import Index from "./pages/Index";
-import QuickAsk from "./pages/QuickAsk";
 import Settings from "./pages/Settings";
 import Reports from "./pages/Reports";
 import Resources from "./pages/Resources";
@@ -41,7 +40,6 @@ const App = () => (
                 >
                   <Route path="/" element={<Welcome />} />
                   <Route path="/department/:slug" element={<Index />} />
-                  <Route path="/quick-ask" element={<QuickAsk />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/resources" element={<Resources />} />
