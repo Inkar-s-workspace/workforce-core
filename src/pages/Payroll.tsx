@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { mockEmployees, mockAttendance } from "@/data/mockData";
+import { useEmployees } from "@/hooks/useEmployees";
+import { useAttendance } from "@/hooks/useAttendance";
 import { Download, AlertTriangle, Users, Banknote, TrendingDown } from "lucide-react";
 
 // ─── Policy constants ─────────────────────────────────────────────────────────
@@ -89,12 +90,11 @@ interface Row {
 
 // ─── Payroll computation ──────────────────────────────────────────────────────
 
-function buildRows(): Row[] {
-  // Figure out how many sample weekdays we actually have
-  const sampleDays = new Set(mockAttendance.map((a: any) => a.date as string)).size || 7;
+function buildRows(employees: any[], attendance: any[]): Row[] {
+  const sampleDays = new Set(attendance.map((a: any) => a.date as string)).size || 7;
 
-  return mockEmployees.map(emp => {
-    const atts = mockAttendance.filter((a: any) => a.employee_id === emp.id);
+  return employees.map(emp => {
+    const atts = attendance.filter((a: any) => a.employee_id === emp.id);
     const scheduled    = atts.length;
     const fullyAbsent  = atts.filter((a: any) => a.missed_clock_in && a.missed_clock_out).length;
     const attended     = scheduled - fullyAbsent;
@@ -191,7 +191,9 @@ function toTitleCase(s: string) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function Payroll() {
-  const rows = useMemo(buildRows, []);
+  const { employees } = useEmployees();
+  const { attendance } = useAttendance();
+  const rows = useMemo(() => buildRows(employees, attendance), [employees, attendance]);
 
   const [search, setSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("all");

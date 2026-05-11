@@ -22,7 +22,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine,
 } from "recharts";
-import { mockEmployees, mockAttendance } from "@/data/mockData";
+import { useAttendance } from "@/hooks/useAttendance";
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 
 type Range = "today" | "week" | "month";
@@ -144,14 +144,14 @@ function computeMetric(slug: MetricSlug, atts: any[]): number {
 }
 
 /** Build the daily series for the chart (always 7 or 30 days depending on toggle) */
-function useDailySeries(slug: MetricSlug, range: Range) {
+function useDailySeries(slug: MetricSlug, range: Range, attendance: any[]) {
   return useMemo(() => {
     const days = range === "today" ? 1 : range === "week" ? 7 : 30;
     return Array.from({ length: days }, (_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - (days - 1 - i));
       const ds  = d.toISOString().split("T")[0];
-      const dayAtts = mockAttendance.filter((a: any) => a.date === ds);
+      const dayAtts = attendance.filter((a: any) => a.date === ds);
       const value = computeMetric(slug, dayAtts);
       return {
         day: d.toLocaleDateString("en-GB", { weekday: "short" }),
@@ -161,7 +161,7 @@ function useDailySeries(slug: MetricSlug, range: Range) {
         isToday: ds === TODAY,
       };
     });
-  }, [slug, range]);
+  }, [slug, range, attendance]);
 }
 
 // ─── Tooltip ──────────────────────────────────────────────────────────────────
@@ -191,6 +191,14 @@ export default function Metrics() {
   const metric   = slug && (slug in METRICS) ? METRICS[slug as MetricSlug] : null;
   const [range, setRange] = useState<Range>("week");
 
+  // Fetch 60 days so both current and comparison periods are covered
+  const startDate = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 59);
+    return d.toISOString().split("T")[0];
+  }, []);
+  const { attendance } = useAttendance({ startDate });
+
   if (!metric) return <Navigate to="/metrics/punctuality" replace />;
 
   // ─── Computations ───────────────────────────────────────────────────────────
@@ -198,11 +206,11 @@ export default function Metrics() {
   const { start, end } = dateRangeForToggle(range);
 
   const periodAtts = useMemo(() => {
-    return mockAttendance.filter((a: any) => {
+    return attendance.filter((a: any) => {
       const d = new Date(a.date);
       return d >= start && d <= end;
     });
-  }, [start, end]);
+  }, [attendance, start, end]);
 
   const periodValue = computeMetric(metric.slug, periodAtts);
 
@@ -213,17 +221,17 @@ export default function Metrics() {
     prevEnd.setDate(prevEnd.getDate() - 1);
     const prevStart = new Date(prevEnd);
     prevStart.setDate(prevStart.getDate() - dayCount + 1);
-    return mockAttendance.filter((a: any) => {
+    return attendance.filter((a: any) => {
       const d = new Date(a.date);
       return d >= prevStart && d <= prevEnd;
     });
-  }, [start, range]);
+  }, [attendance, start, range]);
 
   const prevValue = computeMetric(metric.slug, prevAtts);
   const change    = periodValue - prevValue;
 
   // Series for the chart (skip today-only)
-  const series = useDailySeries(metric.slug, range);
+  const series = useDailySeries(metric.slug, range, attendance);
 
   // Direction analysis — is the change good or bad?
   const isImproving =

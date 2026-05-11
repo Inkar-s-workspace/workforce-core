@@ -1,9 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AttendanceFilter } from "@/types/attendance";
-import {
-  mockEmployees, mockAttendance, mockCredits, mockDepartments,
-} from "@/data/mockData";
+import { useEmployees } from "@/hooks/useEmployees";
+import { useAttendance } from "@/hooks/useAttendance";
 import StatsCards from "@/components/StatsCards";
 import AttendanceFilters from "@/components/AttendanceFilters";
 import EmployeeList from "@/components/EmployeeList";
@@ -78,10 +77,8 @@ const Index = () => {
 
   const departmentName = slug ? (slugToName[slug] ?? null) : null;
 
-  const employees   = mockEmployees;
-  const attendance  = mockAttendance;
-  const credits     = mockCredits;
-  const departments = mockDepartments;
+  const { employees, departments, loading: empLoading } = useEmployees();
+  const { attendance, credits, loading: attLoading }    = useAttendance();
 
   const [deptFilter,        setDeptFilter]        = useState<string | null>(null);
   const [attendanceFilter,  setAttendanceFilter]  = useState<AttendanceFilter>("all");
@@ -156,7 +153,7 @@ const Index = () => {
   }, [departmentName, deptFilter, departments]);
 
   const pageTitle    = currentDeptName ?? "All departments";
-  const showSkeleton = !pageReady;
+  const showSkeleton = !pageReady || empLoading || attLoading;
 
   return (
     <div className="max-w-[1100px] mx-auto px-6 md:px-10 pt-10 md:pt-14 pb-16">

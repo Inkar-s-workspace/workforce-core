@@ -6,7 +6,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { mockDepartments, mockEmployees, mockAttendance, mockCredits } from "@/data/mockData";
+import { useEmployees } from "@/hooks/useEmployees";
+import { useAttendance } from "@/hooks/useAttendance";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -140,23 +141,29 @@ export default function CeoReport() {
 
   const period = `${MONTHS[parseInt(selectedMonth) - 1]} ${selectedYear}`;
 
+  const { employees, departments } = useEmployees();
+  const { attendance, credits }    = useAttendance({
+    month: parseInt(selectedMonth),
+    year:  parseInt(selectedYear),
+  });
+
   // ── Per-department aggregations ──────────────────────────────────────────
   const deptStats = useMemo(() => {
-    return mockDepartments.map(dept => {
-      const emps    = mockEmployees.filter(e => e.department_id === dept.id);
-      const empIds  = new Set(emps.map(e => e.id));
-      const att     = mockAttendance.filter(a => empIds.has(a.employee_id));
-      const credits = mockCredits.filter(c => empIds.has(c.employee_id));
+    return departments.map(dept => {
+      const emps   = employees.filter(e => e.department_id === dept.id);
+      const empIds = new Set(emps.map(e => e.id));
+      const att    = attendance.filter(a => empIds.has(a.employee_id));
+      const cred   = credits.filter(c => empIds.has(c.employee_id));
 
       const missedIn  = att.filter(a => a.missed_clock_in).length;
       const missedOut = att.filter(a => a.missed_clock_out).length;
       const otCount   = att.filter(a => a.is_overtime).length;
       const punctual  = att.filter(a => !a.missed_clock_in).length;
 
-      const totalDeductions = credits.reduce((s, c) => s + (c.deductions ?? 0), 0);
-      const totalOtBonus    = credits.reduce((s, c) => s + (c.overtime_credits ?? 0), 0);
-      const initialCredit   = credits.reduce((s, c) => s + (c.initial_credit ?? 0), 0);
-      const netCredit       = credits.reduce((s, c) => s + (c.final_credit ?? 0), 0);
+      const totalDeductions = cred.reduce((s, c) => s + (c.deductions ?? 0), 0);
+      const totalOtBonus    = cred.reduce((s, c) => s + (c.overtime_credits ?? 0), 0);
+      const initialCredit   = cred.reduce((s, c) => s + (c.initial_credit ?? 0), 0);
+      const netCredit       = cred.reduce((s, c) => s + (c.final_credit ?? 0), 0);
 
       return {
         dept,
@@ -172,37 +179,37 @@ export default function CeoReport() {
         netCredit,
       };
     });
-  }, []);
+  }, [departments, employees, attendance, credits]);
 
   // ── Global KPIs ──────────────────────────────────────────────────────────
   const global = useMemo(() => {
-    const totalStaff      = mockEmployees.length;
-    const totalAtt        = mockAttendance.length;
-    const totalMissedIn   = mockAttendance.filter(a => a.missed_clock_in).length;
-    const totalMissedOut  = mockAttendance.filter(a => a.missed_clock_out).length;
-    const totalOt         = mockAttendance.filter(a => a.is_overtime).length;
-    const punctual        = mockAttendance.filter(a => !a.missed_clock_in).length;
+    const totalStaff      = employees.length;
+    const totalAtt        = attendance.length;
+    const totalMissedIn   = attendance.filter(a => a.missed_clock_in).length;
+    const totalMissedOut  = attendance.filter(a => a.missed_clock_out).length;
+    const totalOt         = attendance.filter(a => a.is_overtime).length;
+    const punctual        = attendance.filter(a => !a.missed_clock_in).length;
     const punctualityRate = totalAtt > 0 ? (punctual / totalAtt) * 100 : 0;
-    const totalDeductions = mockCredits.reduce((s, c) => s + (c.deductions ?? 0), 0);
-    const totalOtBonus    = mockCredits.reduce((s, c) => s + (c.overtime_credits ?? 0), 0);
-    const netCredit       = mockCredits.reduce((s, c) => s + (c.final_credit ?? 0), 0);
+    const totalDeductions = credits.reduce((s, c) => s + (c.deductions ?? 0), 0);
+    const totalOtBonus    = credits.reduce((s, c) => s + (c.overtime_credits ?? 0), 0);
+    const netCredit       = credits.reduce((s, c) => s + (c.final_credit ?? 0), 0);
     return { totalStaff, totalAtt, totalMissedIn, totalMissedOut, totalOt, punctualityRate, totalDeductions, totalOtBonus, netCredit };
-  }, []);
+  }, [employees, attendance, credits]);
 
   // ── Flagged employees (any missed punch) ─────────────────────────────────
   const flaggedEmployees = useMemo(() => {
-    return mockEmployees
+    return employees
       .map(emp => {
-        const att        = mockAttendance.filter(a => a.employee_id === emp.id);
-        const missedIn   = att.filter(a => a.missed_clock_in).length;
-        const missedOut  = att.filter(a => a.missed_clock_out).length;
-        const total      = missedIn + missedOut;
-        const deduction  = missedIn * 100 + (missedOut > 0 && missedIn > 0 ? 100 : 0);
+        const att       = attendance.filter(a => a.employee_id === emp.id);
+        const missedIn  = att.filter(a => a.missed_clock_in).length;
+        const missedOut = att.filter(a => a.missed_clock_out).length;
+        const total     = missedIn + missedOut;
+        const deduction = missedIn * 100 + (missedOut > 0 && missedIn > 0 ? 100 : 0);
         return { emp, missedIn, missedOut, total, deduction };
       })
       .filter(x => x.total > 0)
       .sort((a, b) => b.total - a.total);
-  }, []);
+  }, [employees, attendance]);
 
   // ── Build export rows ────────────────────────────────────────────────────
   const deptRows: string[][] = deptStats.map(d => [
@@ -239,16 +246,16 @@ export default function CeoReport() {
 
   const creditTotals = [
     "TOTAL",
-    String(mockEmployees.length),
-    fmt(mockCredits.reduce((s, c) => s + (c.initial_credit ?? 0), 0)),
+    String(employees.length),
+    fmt(credits.reduce((s, c) => s + (c.initial_credit ?? 0), 0)),
     fmt(global.totalDeductions),
     fmt(global.totalOtBonus),
     fmt(global.netCredit),
-    fmt(Math.round(global.netCredit / Math.max(mockEmployees.length, 1))),
+    fmt(Math.round(global.netCredit / Math.max(employees.length, 1))),
   ];
 
   const kpisForPrint = [
-    { label: "Total Staff",   value: String(global.totalStaff),              sub: `${mockDepartments.length} departments` },
+    { label: "Total Staff",   value: String(global.totalStaff),              sub: `${departments.length} departments` },
     { label: "Punctuality",   value: `${global.punctualityRate.toFixed(1)}%`, sub: "on-time clock-ins" },
     { label: "Total Deductions", value: fmt(global.totalDeductions),          sub: "missed punch penalties" },
     { label: "OT Records",    value: String(global.totalOt),                  sub: `${fmt(global.totalOtBonus)} in bonuses` },
@@ -318,7 +325,7 @@ export default function CeoReport() {
       {/* ── KPI banner ──────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: "Total Staff",      value: global.totalStaff,                            display: String(global.totalStaff),              sub: `${mockDepartments.length} departments`,     icon: Users,         color: "text-primary",     bg: "bg-primary/10" },
+          { label: "Total Staff",      value: global.totalStaff,                            display: String(global.totalStaff),              sub: `${departments.length} departments`,     icon: Users,         color: "text-primary",     bg: "bg-primary/10" },
           { label: "Punctuality Rate", value: global.punctualityRate,                       display: `${global.punctualityRate.toFixed(1)}%`, sub: "on-time clock-ins",                         icon: TrendingUp,    color: global.punctualityRate >= 85 ? "text-emerald-600" : "text-destructive", bg: global.punctualityRate >= 85 ? "bg-emerald-50 dark:bg-emerald-950/30" : "bg-destructive/10" },
           { label: "Total Deductions", value: global.totalDeductions,                       display: fmt(global.totalDeductions),            sub: "missed punch penalties",                    icon: TrendingDown,  color: "text-destructive",  bg: "bg-destructive/10" },
           { label: "Overtime Records", value: global.totalOt,                               display: String(global.totalOt),                 sub: `${fmt(global.totalOtBonus)} in bonuses`,    icon: Clock,         color: "text-amber-600",    bg: "bg-amber-50 dark:bg-amber-950/30" },
@@ -496,12 +503,12 @@ export default function CeoReport() {
               <tfoot>
                 <tr className="bg-muted/50 border-t-2">
                   <td className="px-4 py-3 font-bold">Total</td>
-                  <td className="px-3 py-3 text-center font-bold">{mockEmployees.length}</td>
-                  <td className="px-3 py-3 text-right font-bold">{fmt(mockCredits.reduce((s, c) => s + (c.initial_credit ?? 0), 0))}</td>
+                  <td className="px-3 py-3 text-center font-bold">{employees.length}</td>
+                  <td className="px-3 py-3 text-right font-bold">{fmt(credits.reduce((s, c) => s + (c.initial_credit ?? 0), 0))}</td>
                   <td className="px-3 py-3 text-right font-bold text-destructive">{fmt(global.totalDeductions)}</td>
                   <td className="px-3 py-3 text-right font-bold text-emerald-600">{fmt(global.totalOtBonus)}</td>
                   <td className="px-3 py-3 text-right font-bold">{fmt(global.netCredit)}</td>
-                  <td className="px-4 py-3 text-right font-bold">{fmt(Math.round(global.netCredit / Math.max(mockEmployees.length, 1)))}</td>
+                  <td className="px-4 py-3 text-right font-bold">{fmt(Math.round(global.netCredit / Math.max(employees.length, 1)))}</td>
                 </tr>
               </tfoot>
             </table>

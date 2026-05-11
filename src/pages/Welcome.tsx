@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { mockEmployees, mockAttendance } from "@/data/mockData";
+import { useEmployees } from "@/hooks/useEmployees";
+import { useAttendance } from "@/hooks/useAttendance";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine,
@@ -64,14 +65,13 @@ function isLocum(emp: any) {
 
 // ─── Build last 7 days of trend data ─────────────────────────────────────────
 
-function useTrendData() {
+function useTrendData(attendance: any[], totalStaff: number) {
   return useMemo(() => {
-    const totalStaff = mockEmployees.length;
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - (6 - i));
       const ds  = d.toISOString().split("T")[0];
-      const day = mockAttendance.filter((a: any) => a.date === ds);
+      const day = attendance.filter((a: any) => a.date === ds);
       const present = day.filter((a: any) => !a.missed_clock_in && !a.missed_clock_out).length;
       const expected = day.length || totalStaff;
       const rate = expected > 0 ? Math.round((present / expected) * 100) : 0;
@@ -82,7 +82,7 @@ function useTrendData() {
         rate, present, expected, isToday,
       };
     });
-  }, []);
+  }, [attendance, totalStaff]);
 }
 
 function ChartTooltip({ active, payload }: any) {
@@ -169,14 +169,18 @@ export default function Welcome() {
 
   const [resolved] = useState<Set<string>>(new Set());
 
-  const trendData = useTrendData();
+  const { employees, loading: empLoading } = useEmployees();
+  const { attendance, loading: attLoading } = useAttendance();
+  const isLoading = empLoading || attLoading;
+
+  const trendData = useTrendData(attendance, employees.length);
   const weekAvg   = Math.round(trendData.reduce((s, d) => s + d.rate, 0) / trendData.length);
 
-  // Use the most recent date that has records — mock data skips weekends so TODAY may return nothing
+  // Most recent date that has records — falls back to TODAY when no data yet
   const effectiveDate = useMemo(() => {
-    const dates = [...new Set(mockAttendance.map((a: any) => a.date as string))].sort().reverse();
+    const dates = [...new Set(attendance.map((a: any) => a.date as string))].sort().reverse();
     return dates[0] ?? TODAY;
-  }, []);
+  }, [attendance]);
 
   const isToday = effectiveDate === TODAY;
   const effectiveDateLabel = isToday
@@ -184,22 +188,22 @@ export default function Welcome() {
     : new Date(effectiveDate + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
 
   const todayAtt = useMemo(
-    () => mockAttendance.filter((a: any) => a.date === effectiveDate),
-    [effectiveDate]
+    () => attendance.filter((a: any) => a.date === effectiveDate),
+    [attendance, effectiveDate]
   );
 
   const missingToday = useMemo(() => {
     return todayAtt
       .filter((a: any) => a.missed_clock_in)
       .map((a: any) => {
-        const emp = mockEmployees.find((e: any) => e.id === a.employee_id);
+        const emp = employees.find((e: any) => e.id === a.employee_id);
         return emp ? { ...emp, attendance: a } : null;
       })
       .filter(Boolean) as any[];
-  }, [todayAtt]);
+  }, [todayAtt, employees]);
 
   const presentToday   = todayAtt.filter((a: any) => a.clock_in && !a.missed_clock_in).length;
-  const expectedToday  = todayAtt.length || mockEmployees.length;
+  const expectedToday  = todayAtt.length || employees.length;
   const visibleMissing = missingToday.filter((e) => !resolved.has(e.id));
 
   const fmtDate = new Date().toLocaleDateString("en-GB", {

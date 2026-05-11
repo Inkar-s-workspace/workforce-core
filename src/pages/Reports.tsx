@@ -8,7 +8,8 @@ import { useNavigate } from "react-router-dom";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { mockDepartments, mockEmployees, mockAttendance, mockCredits } from "@/data/mockData";
+import { useEmployees } from "@/hooks/useEmployees";
+import { useAttendance } from "@/hooks/useAttendance";
 
 // ─── CSV helper ───────────────────────────────────────────────────────────────
 
@@ -68,25 +69,28 @@ export default function Reports() {
   const [selectedDept, setSelectedDept] = useState("all");
   const [downloaded, setDownloaded]     = useState<string[]>([]);
 
+  const { employees, departments } = useEmployees();
+  const { attendance, credits }    = useAttendance();
+
   const filteredEmployees = useMemo(() =>
     selectedDept === "all"
-      ? mockEmployees
-      : mockEmployees.filter(e => e.department_id === selectedDept),
-    [selectedDept]);
+      ? employees
+      : employees.filter(e => e.department_id === selectedDept),
+    [employees, selectedDept]);
 
   const employeeIds = useMemo(() => new Set(filteredEmployees.map(e => e.id)), [filteredEmployees]);
 
   // ── Summary stats for the selected filter ────────────────────────────────
   const stats = useMemo(() => {
-    const att     = mockAttendance.filter(a => employeeIds.has(a.employee_id));
-    const credits = mockCredits.filter(c => employeeIds.has(c.employee_id));
+    const att  = attendance.filter(a => employeeIds.has(a.employee_id));
+    const cred = credits.filter(c => employeeIds.has(c.employee_id));
     return {
       employees:   filteredEmployees.length,
       attRecords:  att.length,
       missedPunch: att.filter(a => a.missed_clock_in || a.missed_clock_out).length,
-      deductions:  credits.reduce((s, c) => s + c.deductions, 0),
+      deductions:  cred.reduce((s, c) => s + c.deductions, 0),
     };
-  }, [employeeIds, filteredEmployees]);
+  }, [attendance, credits, employeeIds, filteredEmployees]);
 
   function markDownloaded(key: string) {
     setDownloaded(prev => prev.includes(key) ? prev : [...prev, key]);
@@ -95,10 +99,10 @@ export default function Reports() {
   // ── Export handlers ───────────────────────────────────────────────────────
 
   function getAttRows() {
-    return mockAttendance
+    return attendance
       .filter(a => employeeIds.has(a.employee_id))
       .map(r => {
-        const emp = mockEmployees.find(e => e.id === r.employee_id);
+        const emp = employees.find(e => e.id === r.employee_id);
         return [
           `${emp?.first_name ?? ""} ${emp?.last_name ?? ""}`,
           emp?.emp_code ?? "",
@@ -116,10 +120,10 @@ export default function Reports() {
   }
 
   function getCreditRows() {
-    return mockCredits
+    return credits
       .filter(c => employeeIds.has(c.employee_id))
       .map(r => {
-        const emp = mockEmployees.find(e => e.id === r.employee_id);
+        const emp = employees.find(e => e.id === r.employee_id);
         return [
           `${emp?.first_name ?? ""} ${emp?.last_name ?? ""}`,
           emp?.emp_code ?? "",
@@ -151,7 +155,7 @@ export default function Reports() {
 
   const deptLabel = selectedDept === "all"
     ? "All Departments"
-    : mockDepartments.find(d => d.id === selectedDept)?.name ?? "";
+    : departments.find(d => d.id === selectedDept)?.name ?? "";
 
   const reports = [
     {
@@ -218,7 +222,7 @@ export default function Reports() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Departments</SelectItem>
-            {mockDepartments.map(d => (
+            {departments.map(d => (
               <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
             ))}
           </SelectContent>

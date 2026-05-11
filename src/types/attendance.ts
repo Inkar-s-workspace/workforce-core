@@ -20,7 +20,7 @@ export interface AttendanceRecord {
   id: string;
   employee_id: string;
   date: string;
-  shift_type: ShiftType;
+  shift_type?: ShiftType;
   clock_in: string | null;
   clock_out: string | null;
   missed_clock_in: boolean;

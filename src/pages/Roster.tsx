@@ -601,7 +601,7 @@ function RosterTable({
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 export default function Roster() {
-  const [bioTimeStatus] = useState<BioTimeStatus>('connected')
+  const [bioTimeStatus] = useState<BioTimeStatus>('disconnected')
 
   const [tab, setTab]               = useState<'dept' | 'all'>('dept')
   const [dept, setDept]             = useState('Pharmacy')
