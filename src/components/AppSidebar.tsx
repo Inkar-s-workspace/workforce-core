@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Building2, Home, Settings, Download, BookOpen, LogOut,
-  CalendarDays, BarChart3, ChevronDown, PanelLeftClose, PanelLeftOpen, FileBarChart2, Wallet,
+  CalendarDays, BarChart3, ChevronDown, PanelLeftClose, PanelLeftOpen, FileBarChart2, Wallet, Stethoscope,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -170,6 +170,9 @@ export function AppSidebar() {
               )}
               {canViewReports && (
                 <NavItem to="/payroll" icon={Wallet} label="Payroll" collapsed={collapsed} />
+              )}
+              {canViewReports && (
+                <NavItem to="/medical-cost" icon={Stethoscope} label="Medical Plan" collapsed={collapsed} />
               )}
               <NavItem to="/resources" icon={BookOpen} label="Resources" collapsed={collapsed} />
               <NavItem to="/settings" icon={Settings} label="Settings" collapsed={collapsed} />

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Printer, Download, FileBarChart2, Users, Clock, TrendingDown, TrendingUp, AlertTriangle, CheckCircle2, Calendar } from "lucide-react";
+import { ArrowLeft, Printer, Download, FileBarChart2, TrendingDown, AlertTriangle, CheckCircle2, Calendar, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +32,41 @@ function pct(n: number, d: number) {
 
 function fmt(n: number) {
   return `GH₵ ${n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+}
+
+// ─── Metric helpers ───────────────────────────────────────────────────────────
+
+const METRIC_DEFS = [
+  { key: "punctuality", label: "Punctuality Rate",  target: 90, direction: "up_good",   targetLabel: "Target ≥90%"  },
+  { key: "absenteeism", label: "Absenteeism Rate",  target: 5,  direction: "down_good", targetLabel: "Target ≤5%"   },
+  { key: "adherence",   label: "Shift Adherence",   target: 85, direction: "up_good",   targetLabel: "Target ≥85%"  },
+  { key: "overtime",    label: "Overtime Rate",      target: 15, direction: "down_good", targetLabel: "Target ≤15%"  },
+] as const;
+
+type MetricKey = typeof METRIC_DEFS[number]["key"];
+
+function computeMetricValue(key: MetricKey, atts: { clock_in: string | null; clock_out: string | null; missed_clock_in: boolean; missed_clock_out: boolean; is_overtime: boolean; employee_id: string }[]): number {
+  if (!atts.length) return 0;
+  switch (key) {
+    case "punctuality": {
+      const withIn = atts.filter(a => a.clock_in);
+      if (!withIn.length) return 0;
+      const onTime = withIn.filter(a => {
+        const t = new Date(a.clock_in!);
+        return t.getHours() < 8 || (t.getHours() === 8 && t.getMinutes() === 0);
+      });
+      return Math.round((onTime.length / withIn.length) * 100);
+    }
+    case "absenteeism":
+      return Math.round((atts.filter(a => a.missed_clock_in && a.missed_clock_out).length / atts.length) * 100);
+    case "adherence":
+      return Math.round((atts.filter(a => a.clock_in && a.clock_out && !a.missed_clock_in && !a.missed_clock_out).length / atts.length) * 100);
+    case "overtime": {
+      const staffWithOT  = new Set(atts.filter(a => a.is_overtime).map(a => a.employee_id)).size;
+      const staffInRange = new Set(atts.map(a => a.employee_id)).size;
+      return staffInRange === 0 ? 0 : Math.round((staffWithOT / staffInRange) * 100);
+    }
+  }
 }
 
 const MONTHS = [
@@ -204,6 +239,25 @@ export default function CeoReport() {
       .sort((a, b) => b.total - a.total);
   }, []);
 
+  // ── Metrics snapshot ────────────────────────────────────────────────────
+  const metricsSnapshot = useMemo(() => {
+    const global = METRIC_DEFS.map(def => ({
+      ...def,
+      value: computeMetricValue(def.key, mockAttendance),
+    }));
+
+    const byDept = mockDepartments.map(dept => {
+      const empIds = new Set(mockEmployees.filter(e => e.department_id === dept.id).map(e => e.id));
+      const att = mockAttendance.filter(a => empIds.has(a.employee_id));
+      return {
+        dept,
+        values: Object.fromEntries(METRIC_DEFS.map(def => [def.key, computeMetricValue(def.key, att)])) as Record<MetricKey, number>,
+      };
+    });
+
+    return { global, byDept };
+  }, []);
+
   // ── Build export rows ────────────────────────────────────────────────────
   const deptRows: string[][] = deptStats.map(d => [
     d.dept.name,
@@ -315,30 +369,69 @@ export default function CeoReport() {
         <Badge variant="outline" className="h-7">{period}</Badge>
       </div>
 
-      {/* ── KPI banner ──────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: "Total Staff",      value: global.totalStaff,                            display: String(global.totalStaff),              sub: `${mockDepartments.length} departments`,     icon: Users,         color: "text-primary",     bg: "bg-primary/10" },
-          { label: "Punctuality Rate", value: global.punctualityRate,                       display: `${global.punctualityRate.toFixed(1)}%`, sub: "on-time clock-ins",                         icon: TrendingUp,    color: global.punctualityRate >= 85 ? "text-emerald-600" : "text-destructive", bg: global.punctualityRate >= 85 ? "bg-emerald-50 dark:bg-emerald-950/30" : "bg-destructive/10" },
-          { label: "Total Deductions", value: global.totalDeductions,                       display: fmt(global.totalDeductions),            sub: "missed punch penalties",                    icon: TrendingDown,  color: "text-destructive",  bg: "bg-destructive/10" },
-          { label: "Overtime Records", value: global.totalOt,                               display: String(global.totalOt),                 sub: `${fmt(global.totalOtBonus)} in bonuses`,    icon: Clock,         color: "text-amber-600",    bg: "bg-amber-50 dark:bg-amber-950/30" },
-        ].map(k => (
-          <Card key={k.label} className="p-4">
-            <div className="flex items-start gap-3">
-              <div className={`h-9 w-9 rounded-lg ${k.bg} flex items-center justify-center shrink-0`}>
-                <k.icon className={`h-4 w-4 ${k.color}`} />
-              </div>
-              <div>
-                <p className="text-[11px] text-muted-foreground">{k.label}</p>
-                <p className={`text-xl font-bold ${k.color}`}>{k.display}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{k.sub}</p>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
-
       <Separator />
+
+      {/* ── Metrics snapshot ─────────────────────────────────────────────── */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <Activity className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-base font-semibold">Metrics Snapshot</h2>
+        </div>
+
+        {/* Four metric cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          {metricsSnapshot.global.map(m => {
+            const onTarget = m.direction === "up_good" ? m.value >= m.target : m.value <= m.target;
+            return (
+              <Card key={m.key} className="p-4">
+                <p className="text-[11px] text-muted-foreground mb-1">{m.label}</p>
+                <p className={`text-2xl font-bold tabular-nums ${onTarget ? "text-emerald-600" : "text-destructive"}`}>
+                  {m.value}%
+                </p>
+                <p className={`text-[10px] mt-1 font-medium ${onTarget ? "text-emerald-600" : "text-destructive"}`}>
+                  {onTarget ? "✓ On target" : "✗ Below target"} · {m.targetLabel}
+                </p>
+              </Card>
+            );
+          })}
+        </div>
+
+        {/* Per-department metrics breakdown */}
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/60 border-b">
+                  <th className="text-left px-4 py-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide">Department</th>
+                  {METRIC_DEFS.map(def => (
+                    <th key={def.key} className="text-center px-3 py-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">
+                      {def.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {metricsSnapshot.byDept.map((row, i) => (
+                  <tr key={row.dept.id} className={`border-b last:border-0 ${i % 2 === 0 ? "" : "bg-muted/20"}`}>
+                    <td className="px-4 py-2.5 font-medium">{row.dept.name}</td>
+                    {METRIC_DEFS.map(def => {
+                      const v = row.values[def.key];
+                      const onTarget = def.direction === "up_good" ? v >= def.target : v <= def.target;
+                      return (
+                        <td key={def.key} className="px-3 py-2.5 text-center">
+                          <span className={`font-semibold tabular-nums ${onTarget ? "text-emerald-600" : "text-destructive"}`}>
+                            {v}%
+                          </span>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </div>
 
       {/* ── Department performance table ─────────────────────────────────── */}
       <div>
