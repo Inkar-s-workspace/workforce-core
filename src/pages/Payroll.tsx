@@ -4,10 +4,43 @@ import { Download, AlertTriangle, Users, Banknote, TrendingDown } from "lucide-r
 
 // ─── Policy constants ─────────────────────────────────────────────────────────
 
-const BASE_SALARY     = 1500;              // GHS placeholder
+const BASE_SALARY     = 1500;   // GHS placeholder
 const WORKING_DAYS_MO = 21;
 const PER_DAY_RATE    = BASE_SALARY / WORKING_DAYS_MO;
-const GRACE_MIN       = 15;               // 15-min grace period after 08:00
+const GRACE_MIN       = 15;     // 15-min grace on both clock-in and clock-out
+
+// Shift boundaries (minutes from midnight)
+const SHIFT_BOUNDS: Record<string, { startMin: number; endMin: number }> = {
+  day:      { startMin: 7 * 60,       endMin: 16 * 60      }, // 07:00 – 16:00
+  long_day: { startMin: 7 * 60,       endMin: 19 * 60      }, // 07:00 – 19:00
+  morning:  { startMin: 9 * 60,       endMin: 19 * 60      }, // 09:00 – 19:00
+  night:    { startMin: 19 * 60,      endMin: 7 * 60 + 1440 }, // 19:00 – 07:00 (+24h)
+};
+
+function isLate(clockIn: string, shift: string): boolean {
+  const t   = new Date(clockIn);
+  const min = t.getHours() * 60 + t.getMinutes();
+  // Night shift: clock-in near midnight wraps — normalise to minutes-since-19:00
+  const bounds = SHIFT_BOUNDS[shift] ?? SHIFT_BOUNDS.day;
+  const cutoff = bounds.startMin + GRACE_MIN;
+  if (shift === "night") {
+    const adjusted = min < 7 * 60 ? min + 1440 : min; // past-midnight clock-in
+    return adjusted > cutoff;
+  }
+  return min > cutoff;
+}
+
+function isEarlyDeparture(clockOut: string, shift: string): boolean {
+  const t   = new Date(clockOut);
+  const min = t.getHours() * 60 + t.getMinutes();
+  // Grace is only on the late side (up to 15 min after shift end = fine).
+  // Clocking out before shift end = early departure.
+  if (shift === "night") {
+    return min < 7 * 60; // before 07:00 next morning
+  }
+  const bounds = SHIFT_BOUNDS[shift] ?? SHIFT_BOUNDS.day;
+  return min < bounds.endMin;
+}
 
 function targetHoursForDept(dept_id: string): number {
   if (dept_id === "dept-5") return 180;   // Nursing & Midwifery
@@ -37,6 +70,7 @@ interface Row {
   scheduled: number;
   fullyAbsent: number;
   lateArrivals: number;
+  earlyDepartures: number;
   punctualityRate: number;
   tier: PTier;
   hoursWorked: number;
@@ -65,12 +99,15 @@ function buildRows(): Row[] {
     const fullyAbsent  = atts.filter((a: any) => a.missed_clock_in && a.missed_clock_out).length;
     const attended     = scheduled - fullyAbsent;
 
-    // Late: clocked in but after 08:15 (08:00 shift + 15-min grace)
-    const lateArrivals = atts.filter((a: any) => {
-      if (!a.clock_in || a.missed_clock_in) return false;
-      const t = new Date(a.clock_in);
-      return t.getHours() > 8 || (t.getHours() === 8 && t.getMinutes() > GRACE_MIN);
-    }).length;
+    // Late: clocked in after shift start + 15-min grace (shift-aware)
+    const lateArrivals = atts.filter((a: any) =>
+      a.clock_in && !a.missed_clock_in && isLate(a.clock_in, a.shift_type)
+    ).length;
+
+    // Early departure: clocked out before shift end − 15-min grace (shift-aware)
+    const earlyDepartures = atts.filter((a: any) =>
+      a.clock_out && !a.missed_clock_out && isEarlyDeparture(a.clock_out, a.shift_type)
+    ).length;
 
     const punctualityRate = attended > 0 ? Math.round(((attended - lateArrivals) / attended) * 100) : 100;
     const tier            = pTier(punctualityRate);
@@ -91,9 +128,10 @@ function buildRows(): Row[] {
     );
 
     const flags: string[] = [];
-    if (lateArrivals >= 3) flags.push("3+ Late");
-    if (fullyAbsent > 0)   flags.push("Absent");
-    if (unapprovedOT)      flags.push("Unapproved OT");
+    if (lateArrivals >= 3)    flags.push("3+ Late");
+    if (earlyDepartures >= 3) flags.push("Early Departure");
+    if (fullyAbsent > 0)      flags.push("Absent");
+    if (unapprovedOT)         flags.push("Unapproved OT");
 
     const absentDed = Number((fullyAbsent * PER_DAY_RATE).toFixed(2));
     const punctDed  = tier === "major" ? BASE_SALARY * 0.10 : tier === "minor" ? BASE_SALARY * 0.05 : 0;
@@ -111,6 +149,7 @@ function buildRows(): Row[] {
       scheduled,
       fullyAbsent,
       lateArrivals,
+      earlyDepartures,
       punctualityRate,
       tier,
       hoursWorked,
@@ -139,9 +178,10 @@ const TIER_CLASS: Record<PTier, string> = {
 };
 
 const FLAG_CLASS: Record<string, string> = {
-  "3+ Late":       "bg-amc-yellow/15 text-amc-yellow",
-  "Absent":        "bg-destructive/10 text-destructive",
-  "Unapproved OT": "bg-orange-500/10 text-orange-500",
+  "3+ Late":         "bg-amc-yellow/15 text-amc-yellow",
+  "Early Departure": "bg-amc-yellow/15 text-amc-yellow",
+  "Absent":          "bg-destructive/10 text-destructive",
+  "Unapproved OT":   "bg-orange-500/10 text-orange-500",
 };
 
 function toTitleCase(s: string) {

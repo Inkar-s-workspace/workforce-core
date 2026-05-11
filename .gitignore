@@ -26,8 +26,3 @@ dist-ssr
 .env
 .env.*
 !.env.example
-# .env.example — copy this to .env and fill in real values
-VITE_SUPABASE_URL= https://prcdozfxxfoaeqjbmotn.supabase.co
-VITE_SUPABASE_ANON_KEY= prcdozfxxfoaeqjbmotn        
-VITE_BIOTIME_URL= http://192.168.10.59
-VITE_BIOTIME_API_KEY=

@@ -3,7 +3,7 @@
  * Pulled from the official AMC_EMPLOYEE_LIST_2026 spreadsheet
  */
 
-import { Employee, AttendanceRecord, CreditBalance, Department } from "@/types/attendance";
+import { Employee, AttendanceRecord, CreditBalance, Department, ShiftType } from "@/types/attendance";
 
 export const mockDepartments: Department[] = [
   { id: "dept-1", name: "Administration" },
@@ -194,11 +194,42 @@ function generateEmployees(): Employee[] {
   }));
 }
 
+// Shift definitions: startH/startM = shift start, endH/endM = shift end
+// crossMidnight = true for Night shift (19:00 → 07:00 next day)
+const SHIFT_DEF: Record<ShiftType, {
+  startH: number; startM: number;
+  endH: number;   endM: number;
+  expectedHours: number; crossMidnight: boolean;
+}> = {
+  day:      { startH: 7,  startM: 0, endH: 16, endM: 0,  expectedHours: 9,  crossMidnight: false },
+  long_day: { startH: 7,  startM: 0, endH: 19, endM: 0,  expectedHours: 12, crossMidnight: false },
+  morning:  { startH: 9,  startM: 0, endH: 19, endM: 0,  expectedHours: 10, crossMidnight: false },
+  night:    { startH: 19, startM: 0, endH: 7,  endM: 0,  expectedHours: 12, crossMidnight: true  },
+};
+
+// Shift distribution weights per department
+const DEPT_SHIFTS: Record<string, ShiftType[]> = {
+  "dept-1": ["day","day","day","day","morning"],            // Administration: mostly Day
+  "dept-2": ["day","day","long_day","long_day","morning"],  // Allied Health
+  "dept-3": ["day","day","day","night","night"],            // Auxiliary (security rotates nights)
+  "dept-4": ["long_day","long_day","day","night","night"],  // Medicine
+  "dept-5": ["long_day","long_day","night","night","day"],  // Nursing & Midwifery
+  "dept-6": ["day","day","day","morning","morning"],        // Pharmacy
+};
+
+function pickShift(deptId: string, empIndex: number): ShiftType {
+  const pool = DEPT_SHIFTS[deptId] ?? ["day"];
+  return pool[empIndex % pool.length];
+}
+
 function generateAttendance(employees: Employee[]): AttendanceRecord[] {
   const records: AttendanceRecord[] = [];
   const today = new Date();
 
-  employees.forEach((emp) => {
+  employees.forEach((emp, empIdx) => {
+    const shift     = pickShift(emp.department_id, empIdx);
+    const def       = SHIFT_DEF[shift];
+
     for (let d = 0; d < 7; d++) {
       const date = new Date(today);
       date.setDate(date.getDate() - d);
@@ -206,23 +237,36 @@ function generateAttendance(employees: Employee[]): AttendanceRecord[] {
 
       const missedIn  = Math.random() < 0.08;
       const missedOut = Math.random() < 0.08;
-      const clockInHour = 7 + Math.floor(Math.random() * 2);
-      const clockInMin  = Math.floor(Math.random() * 60);
-      const hoursWorked = 8 + Math.random() * 4 - 1;
 
-      const clockIn  = missedIn  ? null : new Date(date.getFullYear(), date.getMonth(), date.getDate(), clockInHour, clockInMin).toISOString();
-      const clockOut = missedOut ? null : (clockIn ? new Date(new Date(clockIn).getTime() + hoursWorked * 3600000).toISOString() : null);
+      // Randomise clock-in within ±20 min of shift start (captures late arrivals)
+      const inOffsetMin  = Math.floor(Math.random() * 35) - 5; // -5 to +30 min
+      const outOffsetMin = Math.floor(Math.random() * 35) - 5;
+
+      const clockInDate  = new Date(date.getFullYear(), date.getMonth(), date.getDate(),
+                                    def.startH, def.startM + inOffsetMin);
+      // Clock-out: shift end + offset (next day for Night shift)
+      const clockOutBase = new Date(date.getFullYear(), date.getMonth(),
+                                    def.crossMidnight ? date.getDate() + 1 : date.getDate(),
+                                    def.endH, def.endM + outOffsetMin);
+
+      const clockIn  = missedIn  ? null : clockInDate.toISOString();
+      const clockOut = missedOut ? null : (clockIn ? clockOutBase.toISOString() : null);
+
+      const hoursWorked = (clockIn && clockOut)
+        ? Number(((clockOutBase.getTime() - clockInDate.getTime()) / 3600000).toFixed(2))
+        : 0;
 
       records.push({
-        id:                `att-${emp.id}-${d}`,
-        employee_id:       emp.id,
-        date:              date.toISOString().split("T")[0],
-        clock_in:          clockIn,
-        clock_out:         clockOut,
-        missed_clock_in:   missedIn,
-        missed_clock_out:  missedOut,
-        hours_worked:      (!missedIn && !missedOut) ? Number(hoursWorked.toFixed(2)) : 0,
-        is_overtime:       hoursWorked > 10,
+        id:               `att-${emp.id}-${d}`,
+        employee_id:      emp.id,
+        date:             date.toISOString().split("T")[0],
+        shift_type:       shift,
+        clock_in:         clockIn,
+        clock_out:        clockOut,
+        missed_clock_in:  missedIn,
+        missed_clock_out: missedOut,
+        hours_worked:     hoursWorked,
+        is_overtime:      hoursWorked > def.expectedHours + 0.5,
         overtime_approved: false,
       });
     }
