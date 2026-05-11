@@ -11,7 +11,7 @@ interface QuickAskDialogProps {
 
 type Msg = { role: "user" | "assistant"; content: string };
 
-const QUICK_ASK_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/quick-ask`;
+const QUICK_ASK_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/quick-ask`;
 
 export default function QuickAskDialog({ open, onOpenChange }: QuickAskDialogProps) {
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -41,7 +41,7 @@ export default function QuickAskDialog({ open, onOpenChange }: QuickAskDialogPro
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
         },
         body: JSON.stringify({ message: text }),
       });

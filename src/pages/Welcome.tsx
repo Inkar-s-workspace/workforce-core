@@ -172,9 +172,20 @@ export default function Welcome() {
   const trendData = useTrendData();
   const weekAvg   = Math.round(trendData.reduce((s, d) => s + d.rate, 0) / trendData.length);
 
+  // Use the most recent date that has records — mock data skips weekends so TODAY may return nothing
+  const effectiveDate = useMemo(() => {
+    const dates = [...new Set(mockAttendance.map((a: any) => a.date as string))].sort().reverse();
+    return dates[0] ?? TODAY;
+  }, []);
+
+  const isToday = effectiveDate === TODAY;
+  const effectiveDateLabel = isToday
+    ? "today"
+    : new Date(effectiveDate + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+
   const todayAtt = useMemo(
-    () => mockAttendance.filter((a: any) => a.date === TODAY),
-    []
+    () => mockAttendance.filter((a: any) => a.date === effectiveDate),
+    [effectiveDate]
   );
 
   const missingToday = useMemo(() => {
@@ -212,145 +223,121 @@ export default function Welcome() {
         </header>
 
         {/* Heading */}
-        <h1 className="font-display font-bold text-[36px] md:text-[44px] tracking-tight leading-[1.05] mb-8">
-          Attendance overview
+        <h1 className="font-display font-bold text-[36px] md:text-[44px] tracking-tight leading-[1.05] mb-2">
+          Who hasn't clocked in
         </h1>
+        <p className="text-[14px] text-foreground/50 mb-8 capitalize">{effectiveDateLabel}</p>
 
-        {/* Ring + summary */}
-        <section className="mb-12">
+        {/* Summary row */}
+        <section className="flex items-center gap-5 mb-8">
           {visibleMissing.length === 0 ? (
-            <div className="flex items-center gap-5">
+            <>
               <div className="w-24 h-24 rounded-full bg-success/10 ring-4 ring-success/15 flex flex-col items-center justify-center shrink-0">
-                <span className="font-display font-bold text-[28px] leading-none text-success">
-                  {presentToday}
-                </span>
-                <span className="text-[10px] text-foreground/55 mt-1 tabular-nums">
-                  {presentToday}/{expectedToday}
-                </span>
+                <span className="font-display font-bold text-[28px] leading-none text-success">{presentToday}</span>
+                <span className="text-[10px] text-foreground/55 mt-1 tabular-nums">{presentToday}/{expectedToday}</span>
               </div>
               <div>
-                <p className="font-display font-semibold text-[18px] text-foreground leading-tight">
-                  Everyone's here.
-                </p>
-                <p className="text-[13px] text-foreground/55 mt-1">
-                  All {presentToday} expected staff have clocked in this morning.
-                </p>
+                <p className="font-display font-semibold text-[18px] text-foreground leading-tight">Everyone's here.</p>
+                <p className="text-[13px] text-foreground/55 mt-1">All {presentToday} expected staff clocked in.</p>
               </div>
-            </div>
+            </>
           ) : (
-            <div className="flex items-center gap-5">
-              <MetricRing
-                count={visibleMissing.length}
-                total={expectedToday}
-                animatedCount={visibleMissing.length}
-              />
+            <>
+              <MetricRing count={visibleMissing.length} total={expectedToday} animatedCount={visibleMissing.length} />
               <div className="flex-1 min-w-0">
-                <p className="text-[11px] tracking-[0.16em] uppercase text-foreground/45 font-display font-semibold mb-1.5">
-                  Currently absent
-                </p>
+                <p className="text-[11px] tracking-[0.16em] uppercase text-foreground/45 font-display font-semibold mb-1.5">Did not clock in</p>
                 <p className="font-display font-semibold text-[18px] text-foreground leading-tight">
-                  {visibleMissing.length} staff {visibleMissing.length === 1 ? "hasn't" : "haven't"} clocked in yet.
+                  {visibleMissing.length} {visibleMissing.length === 1 ? "employee" : "employees"} missing
                 </p>
                 <p className="text-[13px] text-foreground/55 mt-1.5">
                   <span className="font-semibold text-foreground tabular-nums">{presentToday}</span>{" "}
-                  <span className="text-foreground/45">present</span>
+                  <span className="text-foreground/45">of {expectedToday} present</span>
                 </p>
               </div>
-            </div>
+            </>
           )}
         </section>
 
-        {/* Missing list */}
-        {visibleMissing.length > 0 && (
-          <section className="mb-16">
-            <div className="flex items-baseline justify-between mb-4">
-              <h2 className="font-display text-[11px] tracking-[0.16em] uppercase text-foreground/55 font-semibold">
-                Missing
-              </h2>
-              <span className="text-[11px] text-foreground/40">
-                {visibleMissing.length} {visibleMissing.length === 1 ? "person" : "people"}
-              </span>
-            </div>
-            <div className="rule-paper mb-3" />
+        {/* Missing employees list — always shown, empty state if all present */}
+        <section className="mb-16">
+          <div className="flex items-baseline justify-between mb-4">
+            <h2 className="font-display text-[11px] tracking-[0.16em] uppercase text-foreground/55 font-semibold">
+              {visibleMissing.length === 0 ? "Absent employees" : `Missing · ${visibleMissing.length} ${visibleMissing.length === 1 ? "person" : "people"}`}
+            </h2>
+            {visibleMissing.length > 0 && (
+              <button
+                onClick={() => navigate("/department/all")}
+                className="text-[11px] text-foreground/45 hover:text-foreground underline underline-offset-2 transition-colors"
+              >
+                View all attendance →
+              </button>
+            )}
+          </div>
+          <div className="rule-paper mb-3" />
 
+          {visibleMissing.length === 0 ? (
+            <div className="flex items-center gap-4 px-4 py-5 bg-card border border-border rounded-md">
+              <div className="w-9 h-9 rounded-full bg-success/10 flex items-center justify-center shrink-0">
+                <span className="text-success text-[18px]">✓</span>
+              </div>
+              <p className="text-[14px] text-foreground/60">No missed clock-ins — full attendance recorded.</p>
+            </div>
+          ) : (
             <div className="space-y-1.5">
               {visibleMissing.map((emp, idx) => {
                 const locum = isLocum(emp);
                 const expectedHour = emp.department_name?.includes("Emergency") ? 8 : 7;
-
                 return (
                   <div
                     key={emp.id}
                     className="bg-card border border-border rounded-md px-4 py-3 hover:border-foreground/20 transition-colors"
-                    style={{
-                      animation: `fade-in-up 0.5s ${idx * 50}ms ease-out backwards`,
-                    }}
+                    style={{ animation: `fade-in-up 0.5s ${idx * 50}ms ease-out backwards` }}
                   >
                     <div className="flex items-center gap-4">
-
                       <div className="hidden sm:block shrink-0">
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-destructive/10 text-destructive border border-destructive/20 tracking-wide uppercase">
-                          Late
+                          Absent
                         </span>
                       </div>
-
-                      <div
-                        className={`w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-display font-semibold shrink-0
-                          ${locum
-                            ? "bg-amc-yellow/15 text-amc-yellow ring-1 ring-amc-yellow/30"
-                            : "bg-[#EEE8DD] text-amc-blue ring-1 ring-[#E0D8C8]"
-                          }`}
-                      >
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-display font-semibold shrink-0
+                        ${locum ? "bg-amc-yellow/15 text-amc-yellow ring-1 ring-amc-yellow/30" : "bg-[#EEE8DD] text-amc-blue ring-1 ring-[#E0D8C8]"}`}>
                         {initials(emp.first_name, emp.last_name)}
                       </div>
-
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-[14px] font-display font-semibold truncate">
-                            {emp.first_name} {emp.last_name}
-                          </span>
+                          <span className="text-[14px] font-display font-semibold truncate">{emp.first_name} {emp.last_name}</span>
                           {locum && (
-                            <span className="text-[10px] font-medium px-1.5 py-px rounded-sm text-amc-yellow bg-amc-yellow/15">
-                              Locum
-                            </span>
+                            <span className="text-[10px] font-medium px-1.5 py-px rounded-sm text-amc-yellow bg-amc-yellow/15">Locum</span>
                           )}
                         </div>
-                        <p className="text-[12px] text-foreground/55 mt-0.5 truncate">
-                          {emp.department_name}
-                        </p>
+                        <p className="text-[12px] text-foreground/55 mt-0.5 truncate">{emp.department_name} · {emp.position ?? "—"}</p>
                       </div>
-
                       <div className="hidden md:block text-right shrink-0">
-                        <p className="text-[10px] text-foreground/45 uppercase tracking-[0.1em] font-display font-semibold leading-none mb-1">
-                          Absence
-                        </p>
-                        <p className="text-[13px] font-display font-semibold text-destructive tabular-nums leading-none">
-                          {lateBy(expectedHour)}
-                        </p>
-                        <p className="text-[10px] text-foreground/45 mt-1 tabular-nums">
-                          expected {expectedHour}:00
-                        </p>
+                        <p className="text-[10px] text-foreground/45 uppercase tracking-[0.1em] font-display font-semibold leading-none mb-1">Expected</p>
+                        <p className="text-[13px] font-display font-semibold text-destructive tabular-nums leading-none">{expectedHour}:00</p>
+                        {isToday && (
+                          <p className="text-[10px] text-foreground/45 mt-1 tabular-nums">{lateBy(expectedHour)}</p>
+                        )}
                       </div>
-
                       <button
-                        onClick={() => navigate(`/department/all`)}
+                        onClick={() => navigate("/department/all")}
                         className="shrink-0 px-3 py-1.5 rounded-full border border-border bg-background text-[11px] font-display font-semibold tracking-wide uppercase text-foreground/70 hover:text-foreground hover:border-foreground/30 transition-colors"
                       >
-                        View profile
+                        View
                       </button>
                     </div>
                   </div>
                 );
               })}
             </div>
-          </section>
-        )}
+          )}
+        </section>
 
         {/* 7-day trend */}
         <section className="mb-16">
           <div className="flex items-baseline justify-between mb-5">
             <h2 className="font-display text-[11px] tracking-[0.16em] uppercase text-foreground/55 font-semibold">
-              This week
+              7-day attendance trend
             </h2>
             <span className="text-[11px] text-foreground/45 tabular-nums">
               {weekAvg}% avg attendance

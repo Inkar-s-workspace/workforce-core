@@ -17,6 +17,8 @@ import Roster from "./pages/Roster";
 import Metrics from "./pages/Metrics";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
+import CeoReport from "./pages/CeoReport";
+import Payroll from "./pages/Payroll";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +46,8 @@ const App = () => (
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/resources" element={<Resources />} />
                   <Route path="/roster" element={<Roster />} />
+                  <Route path="/ceo-report" element={<CeoReport />} />
+                  <Route path="/payroll" element={<Payroll />} />
 
                   {/* Metrics — /metrics redirects to first metric, /metrics/:slug shows that one */}
                   <Route path="/metrics" element={<Navigate to="/metrics/punctuality" replace />} />
