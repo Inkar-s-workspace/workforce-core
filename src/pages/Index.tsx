@@ -217,18 +217,6 @@ const Index = () => {
 
       {/* ── Employees section ───────────────────────────────────────── */}
       <section>
-        <div className="flex items-baseline justify-between mb-4 pb-3 border-b border-foreground/10">
-          <h2 className="font-display text-[11px] tracking-[0.14em] uppercase text-foreground/55 font-semibold">
-            Employees
-          </h2>
-          {!showSkeleton && (
-            <span className="text-[11px] text-foreground/40 tabular-nums">
-              {filteredEmployees.length}
-              {filteredEmployees.length !== deptEmployees.length && ` of ${deptEmployees.length}`}
-            </span>
-          )}
-        </div>
-
         {/* Department chips (only on All Departments view) */}
         {!departmentName && (
           <div className="flex flex-wrap gap-1 mb-4">

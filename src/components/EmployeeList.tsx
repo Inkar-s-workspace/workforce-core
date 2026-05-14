@@ -439,11 +439,10 @@ function OvertimeRow({ emp, overtimeRecords, onClick }: {
 
 // ─── Main employee row ────────────────────────────────────────────────────────
 
-function EmployeeRow({ emp, todayRecord, totalHours, finalCredit, missedCount, onClick }: {
+function EmployeeRow({ emp, todayRecord, totalHours, missedCount, onClick }: {
   emp: Employee;
   todayRecord: AttendanceRecord | undefined;
   totalHours: number;
-  finalCredit: number;
   missedCount: number;
   onClick: () => void;
 }) {
@@ -451,11 +450,6 @@ function EmployeeRow({ emp, todayRecord, totalHours, finalCredit, missedCount, o
 
   const hoursColor =
     totalHours < 36 ? "text-destructive" :
-    "text-foreground";
-
-  const creditColor =
-    finalCredit < 1300 ? "text-destructive" :
-    finalCredit < 1500 ? "text-amc-yellow" :
     "text-foreground";
 
   return (
@@ -510,15 +504,6 @@ function EmployeeRow({ emp, todayRecord, totalHours, finalCredit, missedCount, o
             </span>
           </div>
 
-          <div className="hidden md:block h-7 w-px bg-border" />
-
-          <div className="text-right">
-            <p className="text-[10px] text-foreground/45 uppercase tracking-[0.1em] font-display font-semibold leading-none mb-1">Credits</p>
-            <span className={`text-[14px] font-display font-bold tabular-nums ${creditColor}`}>
-              {finalCredit}
-            </span>
-          </div>
-
           <ChevronRight className="h-4 w-4 text-foreground/30 group-hover:text-foreground/70 transition-colors shrink-0 ml-1" />
         </div>
       </div>
@@ -550,11 +535,9 @@ const EmployeeList = ({
       <div className="space-y-1.5">
         {visibleEmployees.map((emp, idx) => {
           const empAtt      = attendance.filter(a => a.employee_id === emp.id);
-          const empCredit   = credits.find(c => c.employee_id === emp.id);
           const todayRecord = empAtt[0];
           const totalHours  = empAtt.reduce((s, a) => s + a.hours_worked, 0);
           const missedCount = empAtt.filter(a => a.missed_clock_in || a.missed_clock_out).length;
-          const finalCredit = empCredit?.final_credit ?? 1500;
 
           const isFirstLocum =
             isLocum(emp) && (idx === 0 || !isLocum(visibleEmployees[idx - 1]));
@@ -575,7 +558,7 @@ const EmployeeList = ({
             <div key={emp.id}>
               {isFirstLocum && <LocumDivider />}
               <EmployeeRow emp={emp} todayRecord={todayRecord}
-                totalHours={totalHours} finalCredit={finalCredit} missedCount={missedCount}
+                totalHours={totalHours} missedCount={missedCount}
                 onClick={() => setSelected(emp)} />
             </div>
           );

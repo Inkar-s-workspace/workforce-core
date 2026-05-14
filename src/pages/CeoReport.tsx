@@ -563,7 +563,6 @@ export default function CeoReport() {
               <thead>
                 <tr className="bg-muted/60 border-b">
                   <th className="text-left px-4 py-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide">Department</th>
-                  <th className="text-center px-3 py-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide">Employees</th>
                   <th className="text-right px-3 py-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide">Initial Credits</th>
                   <th className="text-right px-3 py-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide">Deductions</th>
                   <th className="text-right px-3 py-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide">OT Bonuses</th>
@@ -575,7 +574,6 @@ export default function CeoReport() {
                 {deptStats.map((d, i) => (
                   <tr key={d.dept.id} className={`border-b last:border-0 ${i % 2 === 0 ? "" : "bg-muted/20"}`}>
                     <td className="px-4 py-3 font-medium">{d.dept.name}</td>
-                    <td className="px-3 py-3 text-center text-muted-foreground">{d.staffCount}</td>
                     <td className="px-3 py-3 text-right text-muted-foreground">{fmt(d.initialCredit)}</td>
                     <td className="px-3 py-3 text-right text-destructive font-medium">{fmt(d.totalDeductions)}</td>
                     <td className="px-3 py-3 text-right text-emerald-600 font-medium">{fmt(d.totalOtBonus)}</td>
@@ -589,7 +587,6 @@ export default function CeoReport() {
               <tfoot>
                 <tr className="bg-muted/50 border-t-2">
                   <td className="px-4 py-3 font-bold">Total</td>
-                  <td className="px-3 py-3 text-center font-bold">{mockEmployees.length}</td>
                   <td className="px-3 py-3 text-right font-bold">{fmt(mockCredits.reduce((s, c) => s + (c.initial_credit ?? 0), 0))}</td>
                   <td className="px-3 py-3 text-right font-bold text-destructive">{fmt(global.totalDeductions)}</td>
                   <td className="px-3 py-3 text-right font-bold text-emerald-600">{fmt(global.totalOtBonus)}</td>
