@@ -4,6 +4,7 @@ import {
 } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { mockAttendance, mockEmployees, mockDepartments } from "@/data/mockData";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,6 +57,80 @@ interface OTContextType {
   markAllMissedRead:       () => void;
   // Loading
   loading: boolean;
+}
+
+// ─── Shift-end minutes (for grace period check) ───────────────────────────────
+
+const SHIFT_END_MIN: Record<string, number> = {
+  day:      16 * 60,
+  long_day: 19 * 60,
+  morning:  19 * 60,
+  night:     7 * 60,
+};
+const GRACE = 15;
+
+function clockOutIsOvertime(clockOut: string, shiftType: string): boolean {
+  const t = new Date(clockOut);
+  const min = t.getHours() * 60 + t.getMinutes();
+  const end = SHIFT_END_MIN[shiftType] ?? SHIFT_END_MIN.day;
+  if (shiftType === "night") return min > 7 * 60 + GRACE && min < 12 * 60;
+  return min > end + GRACE;
+}
+
+// ─── Build notifications from mock data (used when Supabase tables are empty) ─
+
+function buildFromMock(): { otList: OvertimeNotification[]; missedList: MissedNotification[] } {
+  const deptMap = new Map(mockDepartments.map(d => [d.id, d.name]));
+  const empMap  = new Map(mockEmployees.map(e => [e.id, e]));
+
+  const otList: OvertimeNotification[] = mockAttendance
+    .filter(a => {
+      if (!a.is_overtime) return false;
+      if (!a.clock_out)   return true;
+      return clockOutIsOvertime(a.clock_out, a.shift_type ?? "day");
+    })
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .map(a => {
+      const emp = empMap.get(a.employee_id);
+      return {
+        id:           a.id,
+        employeeId:   a.employee_id,
+        employeeName: emp ? `${emp.first_name} ${emp.last_name}` : "Unknown",
+        department:   emp ? (deptMap.get(emp.department_id) ?? "Unknown") : "Unknown",
+        departmentId: emp?.department_id ?? "",
+        position:     emp?.position ?? "Staff",
+        date:         a.date,
+        hoursWorked:  a.hours_worked,
+        clockIn:      a.clock_in,
+        clockOut:     a.clock_out,
+        status:       "pending" as OTStatus,
+        readAt:       null,
+        resolvedAt:   null,
+      };
+    });
+
+  const missedList: MissedNotification[] = mockAttendance
+    .filter(a => a.missed_clock_in || a.missed_clock_out)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .map(a => {
+      const emp = empMap.get(a.employee_id);
+      return {
+        id:             a.id,
+        employeeId:     a.employee_id,
+        employeeName:   emp ? `${emp.first_name} ${emp.last_name}` : "Unknown",
+        department:     emp ? (deptMap.get(emp.department_id) ?? "Unknown") : "Unknown",
+        departmentId:   emp?.department_id ?? "",
+        position:       emp?.position ?? "Staff",
+        date:           a.date,
+        missedClockIn:  a.missed_clock_in,
+        missedClockOut: a.missed_clock_out,
+        clockIn:        a.clock_in,
+        clockOut:       a.clock_out,
+        readAt:         null,
+      };
+    });
+
+  return { otList, missedList };
 }
 
 // ─── Persist OT decisions in localStorage (status only) ──────────────────────
@@ -140,7 +215,9 @@ export function OvertimeProvider({ children }: { children: ReactNode }) {
           : (emps ?? []).filter(e => e.department_id === myDeptId).map(e => e.id)
 
         if (visibleEmpIds.length === 0) {
-          if (!cancelled) { setRawOT([]); setRawMissed([]); setLoading(false) }
+          // No Supabase employees found — fall back to mock data
+          const { otList, missedList } = buildFromMock()
+          if (!cancelled) { setRawOT(otList); setRawMissed(missedList); setLoading(false) }
           return
         }
 

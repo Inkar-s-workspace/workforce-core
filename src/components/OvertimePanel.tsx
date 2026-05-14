@@ -280,18 +280,18 @@ function OTCard({ n, onApprove, onDeny, onRevoke, onViewProfile }: {
 
   return (
     <div className={[
-      "rounded-xl border p-4 space-y-3 transition-all",
-      isPending  ? "border-warning/30 bg-warning/5" :
-      isApproved ? "border-success/20 bg-success/5" :
-                   "border-border bg-muted/20 opacity-70",
+      "rounded-xl border-2 p-4 space-y-3 transition-all",
+      isPending  ? "border-warning/60 bg-warning/10" :
+      isApproved ? "border-success/50 bg-success/10" :
+                   "border-border bg-muted/40 opacity-80",
     ].join(" ")}>
       <div className="flex items-start justify-between gap-2">
         <button onClick={onViewProfile}
           className="flex items-center gap-3 min-w-0 group flex-1 text-left">
           <div className={[
             "h-10 w-10 rounded-full flex items-center justify-center shrink-0 text-sm font-bold",
-            isPending  ? "bg-warning/15 text-warning" :
-            isApproved ? "bg-success/15 text-success" : "bg-muted text-muted-foreground",
+            isPending  ? "bg-warning/30 text-warning" :
+            isApproved ? "bg-success/30 text-success" : "bg-muted text-muted-foreground",
           ].join(" ")}>
             {n.employeeName.split(" ").map(w => w[0]).join("").slice(0, 2)}
           </div>
@@ -302,45 +302,45 @@ function OTCard({ n, onApprove, onDeny, onRevoke, onViewProfile }: {
               </p>
               <ChevronRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
             </div>
-            <p className="text-xs text-muted-foreground truncate">{n.position} · {n.department}</p>
+            <p className="text-xs text-foreground/70 truncate">{n.position} · {n.department}</p>
           </div>
         </button>
         <Badge className={[
-          "text-[10px] shrink-0",
-          isPending  ? "bg-warning/15 text-warning border-warning/30" :
-          isApproved ? "bg-success/15 text-success border-0" : "bg-muted text-muted-foreground border-0",
+          "text-[10px] shrink-0 font-semibold",
+          isPending  ? "bg-warning/25 text-warning border-warning/50" :
+          isApproved ? "bg-success/25 text-success border-success/40" : "bg-muted text-muted-foreground border-0",
         ].join(" ")}>
           {isPending ? "Pending" : isApproved ? "✓ Approved" : "✗ Denied"}
         </Badge>
       </div>
 
       <button onClick={onViewProfile}
-        className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-background/60 border hover:bg-muted/50 hover:border-primary/30 transition-all group">
-        <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
+        className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-background border border-border/80 hover:bg-muted/60 hover:border-primary/40 transition-all group">
+        <span className="text-xs text-foreground/60 group-hover:text-foreground transition-colors">
           View full profile &amp; attendance history
         </span>
-        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+        <ChevronRight className="h-3.5 w-3.5 text-foreground/40 group-hover:text-primary transition-colors" />
       </button>
 
       <div className="grid grid-cols-3 gap-2">
-        <div className="bg-background/60 rounded-lg p-2 text-center border">
-          <p className="text-[10px] text-muted-foreground mb-0.5">Date</p>
+        <div className="bg-background rounded-lg p-2 text-center border border-border/80">
+          <p className="text-[10px] text-foreground/50 mb-0.5">Date</p>
           <p className="text-xs font-semibold">{fmtDate(n.date)}</p>
         </div>
-        <div className="bg-background/60 rounded-lg p-2 text-center border">
-          <p className="text-[10px] text-muted-foreground mb-0.5">Total</p>
+        <div className="bg-background rounded-lg p-2 text-center border border-border/80">
+          <p className="text-[10px] text-foreground/50 mb-0.5">Total</p>
           <p className="text-xs font-bold text-warning">{n.hoursWorked.toFixed(1)}h</p>
         </div>
-        <div className="bg-background/60 rounded-lg p-2 text-center border">
-          <p className="text-[10px] text-muted-foreground mb-0.5">Extra</p>
+        <div className="bg-background rounded-lg p-2 text-center border border-border/80">
+          <p className="text-[10px] text-foreground/50 mb-0.5">Extra</p>
           <p className="text-xs font-bold text-warning">+{Math.max(0, n.hoursWorked - 9).toFixed(1)}h</p>
         </div>
       </div>
 
-      <div className="flex gap-3 text-[11px] text-muted-foreground">
-        <span>In: <span className="font-mono text-foreground">{fmtTime(n.clockIn)}</span></span>
+      <div className="flex gap-3 text-[11px] text-foreground/60">
+        <span>In: <span className="font-mono font-semibold text-foreground">{fmtTime(n.clockIn)}</span></span>
         <span>·</span>
-        <span>Out: <span className="font-mono text-foreground">{fmtTime(n.clockOut)}</span></span>
+        <span>Out: <span className="font-mono font-semibold text-foreground">{fmtTime(n.clockOut)}</span></span>
       </div>
 
       {isPending && (
@@ -373,18 +373,18 @@ function MissedCard({ n, onViewProfile }: {
 }) {
   const both = n.missedClockIn && n.missedClockOut;
   const label = both ? "Missed Both" : n.missedClockIn ? "No Clock-In" : "No Clock-Out";
-  const color = both ? "border-destructive/30 bg-destructive/5" : "border-warning/30 bg-warning/5";
+  const color = both ? "border-destructive/60 bg-destructive/10" : "border-warning/60 bg-warning/10";
   const badgeColor = both
-    ? "bg-destructive/15 text-destructive border-destructive/30"
-    : "bg-warning/15 text-warning border-warning/30";
+    ? "bg-destructive/25 text-destructive border-destructive/50 font-semibold"
+    : "bg-warning/25 text-warning border-warning/50 font-semibold";
 
   return (
-    <div className={`rounded-xl border p-4 space-y-3 transition-all ${color}`}>
+    <div className={`rounded-xl border-2 p-4 space-y-3 transition-all ${color}`}>
       <div className="flex items-start justify-between gap-2">
         <button onClick={onViewProfile}
           className="flex items-center gap-3 min-w-0 group flex-1 text-left">
           <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 text-sm font-bold ${
-            both ? "bg-destructive/15 text-destructive" : "bg-warning/15 text-warning"
+            both ? "bg-destructive/30 text-destructive" : "bg-warning/30 text-warning"
           }`}>
             {n.employeeName.split(" ").map(w => w[0]).join("").slice(0, 2)}
           </div>
@@ -395,7 +395,7 @@ function MissedCard({ n, onViewProfile }: {
               </p>
               <ChevronRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
             </div>
-            <p className="text-xs text-muted-foreground truncate">{n.position} · {n.department}</p>
+            <p className="text-xs text-foreground/70 truncate">{n.position} · {n.department}</p>
           </div>
         </button>
         <Badge className={`text-[10px] shrink-0 ${badgeColor}`}>
@@ -404,33 +404,33 @@ function MissedCard({ n, onViewProfile }: {
       </div>
 
       <button onClick={onViewProfile}
-        className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-background/60 border hover:bg-muted/50 hover:border-primary/30 transition-all group">
-        <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
+        className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-background border border-border/80 hover:bg-muted/60 hover:border-primary/40 transition-all group">
+        <span className="text-xs text-foreground/60 group-hover:text-foreground transition-colors">
           View full profile &amp; attendance history
         </span>
-        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+        <ChevronRight className="h-3.5 w-3.5 text-foreground/40 group-hover:text-primary transition-colors" />
       </button>
 
       <div className="grid grid-cols-3 gap-2">
-        <div className="bg-background/60 rounded-lg p-2 text-center border">
-          <p className="text-[10px] text-muted-foreground mb-0.5">Date</p>
+        <div className="bg-background rounded-lg p-2 text-center border border-border/80">
+          <p className="text-[10px] text-foreground/50 mb-0.5">Date</p>
           <p className="text-xs font-semibold">{fmtDate(n.date)}</p>
         </div>
-        <div className="bg-background/60 rounded-lg p-2 text-center border">
-          <p className="text-[10px] text-muted-foreground mb-0.5">Clock In</p>
+        <div className="bg-background rounded-lg p-2 text-center border border-border/80">
+          <p className="text-[10px] text-foreground/50 mb-0.5">Clock In</p>
           <p className={`text-xs font-mono font-bold ${n.missedClockIn ? "text-destructive" : "text-success"}`}>
             {fmtTime(n.clockIn)}
           </p>
         </div>
-        <div className="bg-background/60 rounded-lg p-2 text-center border">
-          <p className="text-[10px] text-muted-foreground mb-0.5">Clock Out</p>
+        <div className="bg-background rounded-lg p-2 text-center border border-border/80">
+          <p className="text-[10px] text-foreground/50 mb-0.5">Clock Out</p>
           <p className={`text-xs font-mono font-bold ${n.missedClockOut ? "text-destructive" : "text-foreground"}`}>
             {fmtTime(n.clockOut)}
           </p>
         </div>
       </div>
 
-      <p className="text-[11px] text-muted-foreground">
+      <p className="text-[11px] text-foreground/70 font-medium">
         Deduction: <span className="font-bold text-destructive">
           -GH₵{(n.missedClockIn ? 100 : 0) + (n.missedClockOut ? 100 : 0)}
         </span> from monthly credit
