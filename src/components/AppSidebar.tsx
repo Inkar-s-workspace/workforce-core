@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Building2, Home, Settings, Download, BookOpen, LogOut,
-  CalendarDays, BarChart3, ChevronDown, PanelLeftClose, PanelLeftOpen, FileBarChart2, Wallet,
+  CalendarDays, BarChart3, ChevronDown, PanelLeftClose, PanelLeftOpen, FileBarChart2,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -167,9 +167,6 @@ export function AppSidebar() {
               )}
               {canViewReports && (
                 <NavItem to="/ceo-report" icon={FileBarChart2} label="CEO Report" collapsed={collapsed} />
-              )}
-              {canViewReports && (
-                <NavItem to="/payroll" icon={Wallet} label="Payroll" collapsed={collapsed} />
               )}
               <NavItem to="/resources" icon={BookOpen} label="Resources" collapsed={collapsed} />
               <NavItem to="/settings" icon={Settings} label="Settings" collapsed={collapsed} />
