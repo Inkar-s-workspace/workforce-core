@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Printer, Download, FileBarChart2, TrendingDown, AlertTriangle, CheckCircle2, Calendar, Activity } from "lucide-react";
+import { ArrowLeft, Printer, Download, FileBarChart2, AlertTriangle, CheckCircle2, Calendar, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -451,8 +451,6 @@ export default function CeoReport() {
                   <th className="text-center px-3 py-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide">Missed Out</th>
                   <th className="text-center px-3 py-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide">Punctuality</th>
                   <th className="text-center px-3 py-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide">OT</th>
-                  <th className="text-right px-4 py-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide">Deductions</th>
-                  <th className="text-right px-4 py-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide">Net Credits</th>
                 </tr>
               </thead>
               <tbody>
@@ -477,8 +475,6 @@ export default function CeoReport() {
                       </span>
                     </td>
                     <td className="px-3 py-3 text-center text-amber-600 font-medium">{d.otCount}</td>
-                    <td className="px-4 py-3 text-right text-destructive font-medium">{fmt(d.totalDeductions)}</td>
-                    <td className="px-4 py-3 text-right font-semibold">{fmt(d.netCredit)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -491,8 +487,6 @@ export default function CeoReport() {
                   <td className="px-3 py-3 text-center font-bold text-destructive">{global.totalMissedOut}</td>
                   <td className="px-3 py-3 text-center font-bold">{global.punctualityRate.toFixed(1)}%</td>
                   <td className="px-3 py-3 text-center font-bold text-amber-600">{global.totalOt}</td>
-                  <td className="px-4 py-3 text-right font-bold text-destructive">{fmt(global.totalDeductions)}</td>
-                  <td className="px-4 py-3 text-right font-bold">{fmt(global.netCredit)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -525,7 +519,6 @@ export default function CeoReport() {
                     <th className="text-center px-3 py-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide">Missed In</th>
                     <th className="text-center px-3 py-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide">Missed Out</th>
                     <th className="text-center px-3 py-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide">Total</th>
-                    <th className="text-right px-4 py-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide">Est. Deduction</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -541,7 +534,6 @@ export default function CeoReport() {
                         {x.missedOut > 0 ? <span className="text-destructive font-semibold">{x.missedOut}</span> : <span className="text-muted-foreground">0</span>}
                       </td>
                       <td className="px-3 py-2.5 text-center font-bold text-destructive">{x.total}</td>
-                      <td className="px-4 py-2.5 text-right font-semibold text-destructive">GH₵ {x.deduction}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -551,61 +543,12 @@ export default function CeoReport() {
         )}
       </div>
 
-      {/* ── Credit & payroll summary ─────────────────────────────────────── */}
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <TrendingDown className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-base font-semibold">Credit & Payroll Summary</h2>
-        </div>
-        <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-muted/60 border-b">
-                  <th className="text-left px-4 py-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide">Department</th>
-                  <th className="text-right px-3 py-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide">Initial Credits</th>
-                  <th className="text-right px-3 py-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide">Deductions</th>
-                  <th className="text-right px-3 py-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide">OT Bonuses</th>
-                  <th className="text-right px-3 py-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide">Net Credits</th>
-                  <th className="text-right px-4 py-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide">Avg / Employee</th>
-                </tr>
-              </thead>
-              <tbody>
-                {deptStats.map((d, i) => (
-                  <tr key={d.dept.id} className={`border-b last:border-0 ${i % 2 === 0 ? "" : "bg-muted/20"}`}>
-                    <td className="px-4 py-3 font-medium">{d.dept.name}</td>
-                    <td className="px-3 py-3 text-right text-muted-foreground">{fmt(d.initialCredit)}</td>
-                    <td className="px-3 py-3 text-right text-destructive font-medium">{fmt(d.totalDeductions)}</td>
-                    <td className="px-3 py-3 text-right text-emerald-600 font-medium">{fmt(d.totalOtBonus)}</td>
-                    <td className="px-3 py-3 text-right font-semibold">{fmt(d.netCredit)}</td>
-                    <td className="px-4 py-3 text-right text-muted-foreground">
-                      {d.staffCount > 0 ? fmt(Math.round(d.netCredit / d.staffCount)) : "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="bg-muted/50 border-t-2">
-                  <td className="px-4 py-3 font-bold">Total</td>
-                  <td className="px-3 py-3 text-right font-bold">{fmt(mockCredits.reduce((s, c) => s + (c.initial_credit ?? 0), 0))}</td>
-                  <td className="px-3 py-3 text-right font-bold text-destructive">{fmt(global.totalDeductions)}</td>
-                  <td className="px-3 py-3 text-right font-bold text-emerald-600">{fmt(global.totalOtBonus)}</td>
-                  <td className="px-3 py-3 text-right font-bold">{fmt(global.netCredit)}</td>
-                  <td className="px-4 py-3 text-right font-bold">{fmt(Math.round(global.netCredit / Math.max(mockEmployees.length, 1)))}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </Card>
-      </div>
-
       {/* ── Footer note ──────────────────────────────────────────────────── */}
       <div className="flex items-start gap-2 px-4 py-3 rounded-xl bg-muted/40 border text-xs text-muted-foreground">
         <FileBarChart2 className="h-4 w-4 shrink-0 mt-0.5" />
         <p>
           This report is generated from the AMC Attendance System and is intended for executive review only.
           Use <strong>Print / PDF</strong> to save a formatted copy, or <strong>Download CSV</strong> to open in Excel.
-          Deduction policy: GH₵ 100 per missed clock-in, GH₵ 100 per missed clock-out (max GH₵ 200/day).
         </p>
       </div>
     </div>
