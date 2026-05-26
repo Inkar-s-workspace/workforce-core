@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { mockEmployees, mockAttendance } from "@/data/mockData";
+import { mockEmployees, mockAttendance, mockCredits } from "@/data/mockData";
+import { EmployeeSheet } from "@/components/EmployeeList";
+import type { Employee } from "@/types/attendance";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine,
@@ -168,6 +170,7 @@ export default function Welcome() {
     .join(" ");
 
   const [resolved] = useState<Set<string>>(new Set());
+  const [selectedEmp, setSelectedEmp] = useState<Employee | null>(null);
 
   const trendData = useTrendData();
   const weekAvg   = Math.round(trendData.reduce((s, d) => s + d.rate, 0) / trendData.length);
@@ -207,6 +210,7 @@ export default function Welcome() {
   });
 
   return (
+    <>
     <div className="min-h-screen text-foreground antialiased">
       <div className="max-w-[1100px] mx-auto px-6 md:px-12 pt-12 md:pt-16 pb-16">
 
@@ -290,7 +294,8 @@ export default function Welcome() {
                 return (
                   <div
                     key={emp.id}
-                    className="bg-card border border-border rounded-md px-4 py-3 hover:border-foreground/20 transition-colors"
+                    onClick={() => setSelectedEmp(emp)}
+                    className="bg-card border border-border rounded-md px-4 py-3 hover:border-foreground/20 transition-colors cursor-pointer"
                     style={{ animation: `fade-in-up 0.5s ${idx * 50}ms ease-out backwards` }}
                   >
                     <div className="flex items-center gap-4">
@@ -454,5 +459,14 @@ export default function Welcome() {
 
       </div>
     </div>
+
+    <EmployeeSheet
+      emp={selectedEmp}
+      attendance={selectedEmp ? mockAttendance.filter(a => a.employee_id === selectedEmp.id) : []}
+      credit={selectedEmp ? mockCredits.find(c => c.employee_id === selectedEmp.id) : undefined}
+      open={!!selectedEmp}
+      onClose={() => setSelectedEmp(null)}
+    />
+    </>
   );
 }

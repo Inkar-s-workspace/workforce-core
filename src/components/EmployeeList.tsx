@@ -128,7 +128,7 @@ function Avatar({ emp, size = "md" }: { emp: Employee; size?: "sm" | "md" | "lg"
 
 // ─── Employee detail sheet ────────────────────────────────────────────────────
 
-function EmployeeSheet({ emp, attendance, credit, open, onClose }: {
+export function EmployeeSheet({ emp, attendance, credit, open, onClose }: {
   emp: Employee | null;
   attendance: AttendanceRecord[];
   credit: CreditBalance | undefined;

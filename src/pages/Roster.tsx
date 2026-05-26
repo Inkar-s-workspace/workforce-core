@@ -403,7 +403,7 @@ function AddMonthModal({
 // ─────────────────────────────────────────────────────────────────────────────
 function AddEmployeeRow({ onAdd }: { onAdd: (name: string, empId: string) => void }) {
   const [name, setName]   = useState('')
-  const [empId, setEmpId] = useState('AMC/')
+  const [empId, setEmpId] = useState('AMC-')
 
   const submit = () => {
     const n = name.trim()
@@ -446,10 +446,125 @@ function AddEmployeeRow({ onAdd }: { onAdd: (name: string, empId: string) => voi
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// EMPLOYEE PROFILE MODAL
+// ─────────────────────────────────────────────────────────────────────────────
+function EmployeeProfileModal({
+  staff, dept, monthDef, onClose,
+}: {
+  staff: StaffRow
+  dept: string
+  monthDef: MonthDef
+  onClose: () => void
+}) {
+  const cleanName = staff.name.replace(/\s*\(LOCUM\)/gi, '')
+  const inits     = cleanName.split(' ').map((w: string) => w[0]).slice(0, 2).join('')
+
+  // Build schedule summary
+  const days = Array.from({ length: monthDef.days }, (_, i) => String(i + 1))
+  const counts: Record<string, number> = {}
+  days.forEach(d => {
+    const code = normalize(staff.schedule?.[d])
+    counts[code] = (counts[code] || 0) + 1
+  })
+
+  const workingDays = days.filter(d => {
+    const cfg = SHIFTS[normalize(staff.schedule?.[d])]
+    return cfg?.category === 'WORKING'
+  }).length
+  const offDays   = days.filter(d => SHIFTS[normalize(staff.schedule?.[d])]?.category === 'OFF').length
+  const leaveDays = days.filter(d => SHIFTS[normalize(staff.schedule?.[d])]?.category === 'LEAVE').length
+
+  const shiftBreakdown = Object.entries(counts)
+    .filter(([code]) => code !== 'O' && code !== 'F')
+    .sort((a, b) => b[1] - a[1])
+
+  return (
+    <div className="fixed inset-0 bg-foreground/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="bg-card border border-border rounded-md p-6 w-full max-w-sm shadow-lg"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <div
+              className={`w-12 h-12 rounded-lg flex items-center justify-center text-[14px] font-display font-bold shrink-0
+                ${staff.isLocum
+                  ? 'bg-amc-yellow/15 text-amc-yellow ring-1 ring-amc-yellow/30'
+                  : 'bg-[#EEE8DD] text-amc-blue ring-1 ring-[#E0D8C8]'
+                }`}
+            >
+              {inits}
+            </div>
+            <div>
+              <p className="font-display font-bold text-[16px] leading-tight">{cleanName}</p>
+              <p className="text-[11px] font-mono text-foreground/45 mt-0.5">{staff.empId}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-foreground/40 hover:text-foreground p-1">
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Badges */}
+        <div className="flex items-center gap-2 mb-5">
+          <span className="text-[10px] font-display font-semibold tracking-[0.12em] uppercase px-2 py-1 rounded border border-border bg-muted text-foreground/60">
+            {dept}
+          </span>
+          {staff.isLocum ? (
+            <span className="text-[10px] font-semibold px-2 py-1 rounded bg-amc-yellow/15 text-amc-yellow tracking-wide">
+              Locum
+            </span>
+          ) : (
+            <span className="text-[10px] font-semibold px-2 py-1 rounded bg-foreground/8 text-foreground/55 tracking-wide">
+              Regular staff
+            </span>
+          )}
+        </div>
+
+        {/* Schedule summary for the month */}
+        <p className="font-display text-[10px] tracking-[0.12em] uppercase text-foreground/45 font-semibold mb-3">
+          {monthDef.label} — schedule summary
+        </p>
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          {[
+            { label: 'Working', value: workingDays, color: 'text-foreground' },
+            { label: 'Leave',   value: leaveDays,   color: 'text-foreground/55' },
+            { label: 'Off',     value: offDays,     color: 'text-foreground/35' },
+          ].map(({ label, value, color }) => (
+            <div key={label} className="rounded border border-border px-3 py-2 text-center">
+              <p className={`font-display font-bold text-[20px] tabular-nums ${color}`}>{value}</p>
+              <p className="text-[10px] text-foreground/45 mt-0.5">{label}</p>
+            </div>
+          ))}
+        </div>
+
+        {shiftBreakdown.length > 0 && (
+          <div className="space-y-1.5">
+            {shiftBreakdown.map(([code, count]) => {
+              const def = SHIFTS[code]
+              return (
+                <div key={code} className="flex items-center justify-between text-[12px]">
+                  <span className="text-foreground/65">
+                    <span className="font-display font-semibold text-foreground mr-1.5">{code}</span>
+                    {def?.label ?? code}
+                  </span>
+                  <span className="tabular-nums font-semibold">{count}d</span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // ROSTER TABLE
 // ─────────────────────────────────────────────────────────────────────────────
 function RosterTable({
-  dept, staff, monthDef, editMode, onEditCell, onRemoveStaff,
+  dept, staff, monthDef, editMode, onEditCell, onRemoveStaff, onSelectEmployee,
 }: {
   dept: string
   staff: StaffRow[]
@@ -457,6 +572,7 @@ function RosterTable({
   editMode: boolean
   onEditCell: (empId: string, day: string, code: string) => void
   onRemoveStaff: (empId: string) => void
+  onSelectEmployee: (s: StaffRow) => void
 }) {
   const days        = Array.from({ length: monthDef.days }, (_, i) => i + 1)
   const sortedStaff = sortStaff(staff)
@@ -540,31 +656,36 @@ function RosterTable({
                     style={{ minWidth: 260 }}
                   >
                     <div className="flex items-center gap-2.5">
-                      {/* AVATAR — unified cream + AMC blue, locum keeps yellow */}
-                      <div
-                        className={`w-7 h-7 rounded-md flex items-center justify-center text-[9px] font-display font-bold shrink-0
-                          ${s.isLocum
-                            ? 'bg-amc-yellow/15 text-amc-yellow ring-1 ring-amc-yellow/30'
-                            : 'bg-[#EEE8DD] text-amc-blue ring-1 ring-[#E0D8C8]'
-                          }`}
+                      {/* Clickable avatar + name → opens profile */}
+                      <button
+                        onClick={() => onSelectEmployee(s)}
+                        className="flex items-center gap-2.5 min-w-0 flex-1 text-left hover:opacity-75 transition-opacity"
                       >
-                        {inits}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className="font-display font-semibold text-[13px] text-foreground truncate leading-tight">
-                            {cleanName}
-                          </p>
-                          {s.isLocum && (
-                            <span className="text-[9px] font-semibold px-1.5 py-px rounded-sm bg-amc-yellow/15 text-amc-yellow tracking-wide">
-                              Locum
-                            </span>
-                          )}
+                        <div
+                          className={`w-7 h-7 rounded-md flex items-center justify-center text-[9px] font-display font-bold shrink-0
+                            ${s.isLocum
+                              ? 'bg-amc-yellow/15 text-amc-yellow ring-1 ring-amc-yellow/30'
+                              : 'bg-[#EEE8DD] text-amc-blue ring-1 ring-[#E0D8C8]'
+                            }`}
+                        >
+                          {inits}
                         </div>
-                        <p className="text-[10px] font-mono text-foreground/45 leading-tight">
-                          {s.empId}
-                        </p>
-                      </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="font-display font-semibold text-[13px] text-foreground truncate leading-tight">
+                              {cleanName}
+                            </p>
+                            {s.isLocum && (
+                              <span className="text-[9px] font-semibold px-1.5 py-px rounded-sm bg-amc-yellow/15 text-amc-yellow tracking-wide">
+                                Locum
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] font-mono text-foreground/45 leading-tight">
+                            {s.empId}
+                          </p>
+                        </div>
+                      </button>
                       {editMode && (
                         <button
                           onClick={() => onRemoveStaff(s.empId)}
@@ -612,6 +733,7 @@ export default function Roster() {
   const [showAddMonth, setShowAddMonth] = useState(false)
   const [customMonths, setCustomMonths] = useState<MonthDef[]>([])
   const [expandedDepts, setExpandedDepts] = useState<Record<string, boolean>>({})
+  const [selectedEmployee, setSelectedEmployee] = useState<{ staff: StaffRow; dept: string } | null>(null)
 
   const [roster, setRoster] = useState<RosterStore>(buildInitialStore)
   const rosterRef = useRef(roster)
@@ -690,6 +812,7 @@ export default function Roster() {
       if (Object.keys(additions).length > 0) setRoster(prev => ({ ...prev, ...additions }))
     }
     setMonthKey(m.key)
+    setEditMode(true)
   }, [])
 
   const exportCSV = () => {
@@ -891,6 +1014,7 @@ export default function Roster() {
                         const k = `${d}::${monthKey}`
                         setRoster(prev => ({ ...prev, [k]: (prev[k] || []).filter(s => s.empId !== empId) }))
                       }}
+                      onSelectEmployee={s => setSelectedEmployee({ staff: s, dept: d })}
                     />
                   </div>
                 )}
@@ -964,6 +1088,7 @@ export default function Roster() {
             <RosterTable
               dept={dept} staff={filteredStaff} monthDef={currentMonth}
               editMode={editMode} onEditCell={editCell} onRemoveStaff={removeStaff}
+              onSelectEmployee={s => setSelectedEmployee({ staff: s, dept })}
             />
           </div>
         </div>
@@ -1021,6 +1146,15 @@ export default function Roster() {
 
       {showAddMonth && (
         <AddMonthModal existingMonths={allMonths} onAdd={addMonth} onClose={() => setShowAddMonth(false)} />
+      )}
+
+      {selectedEmployee && (
+        <EmployeeProfileModal
+          staff={selectedEmployee.staff}
+          dept={selectedEmployee.dept}
+          monthDef={currentMonth}
+          onClose={() => setSelectedEmployee(null)}
+        />
       )}
     </div>
   )

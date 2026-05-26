@@ -22,8 +22,10 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine,
 } from "recharts";
-import { mockEmployees, mockAttendance } from "@/data/mockData";
+import { mockEmployees, mockAttendance, mockCredits } from "@/data/mockData";
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
+import { EmployeeSheet } from "@/components/EmployeeList";
+import type { Employee } from "@/types/attendance";
 
 type Range = "today" | "week" | "month";
 
@@ -190,6 +192,7 @@ export default function Metrics() {
   const { slug } = useParams<{ slug: string }>();
   const metric   = slug && (slug in METRICS) ? METRICS[slug as MetricSlug] : null;
   const [range, setRange] = useState<Range>("week");
+  const [selectedEmp, setSelectedEmp] = useState<Employee | null>(null);
 
   if (!metric) return <Navigate to="/metrics/punctuality" replace />;
 
@@ -243,6 +246,7 @@ export default function Metrics() {
   // ─── UI ─────────────────────────────────────────────────────────────────────
 
   return (
+    <>
     <div className="max-w-[1100px] mx-auto px-6 md:px-10 pt-10 md:pt-14 pb-16">
 
       {/* ── Page header ──────────────────────────────────────────────────── */}
@@ -462,6 +466,79 @@ export default function Metrics() {
         </section>
       )}
 
+      {/* ── Individual employee breakdown ────────────────────────────── */}
+      <section className="mb-12">
+        <div className="rule-paper mb-6" />
+        <p className="font-display text-[11px] tracking-[0.16em] uppercase text-foreground/40 font-semibold mb-4">
+          Individual employees — ranked by {metric.title.toLowerCase()}
+        </p>
+
+        {(() => {
+          const empRows = mockEmployees
+            .map(emp => {
+              const att = periodAtts.filter((a: any) => a.employee_id === emp.id);
+              return { emp, value: computeMetric(metric.slug, att), records: att.length };
+            })
+            .sort((a, b) =>
+              metric.direction === "up_good"
+                ? b.value - a.value
+                : a.value - b.value
+            );
+
+          return (
+            <div className="bg-card border border-border rounded-md overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-[13px]">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/40">
+                      <th className="text-left px-4 py-3 font-display font-semibold text-[11px] uppercase tracking-[0.12em] text-foreground/50">#</th>
+                      <th className="text-left px-4 py-3 font-display font-semibold text-[11px] uppercase tracking-[0.12em] text-foreground/50">Employee</th>
+                      <th className="text-left px-3 py-3 font-display font-semibold text-[11px] uppercase tracking-[0.12em] text-foreground/50">Dept</th>
+                      <th className="text-center px-3 py-3 font-display font-semibold text-[11px] uppercase tracking-[0.12em] text-foreground/50">{metric.title}</th>
+                      <th className="text-center px-3 py-3 font-display font-semibold text-[11px] uppercase tracking-[0.12em] text-foreground/50">Records</th>
+                      <th className="text-center px-3 py-3 font-display font-semibold text-[11px] uppercase tracking-[0.12em] text-foreground/50">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {empRows.map((row, i) => {
+                      const onTarget = metric.direction === "up_good"
+                        ? row.value >= metric.target
+                        : row.value <= metric.target;
+                      return (
+                        <tr
+                          key={row.emp.id}
+                          onClick={() => setSelectedEmp(row.emp)}
+                          className={`border-b border-border/60 last:border-0 cursor-pointer hover:bg-amc-yellow/5 transition-colors ${i % 2 === 0 ? "" : "bg-muted/20"}`}
+                        >
+                          <td className="px-4 py-2.5 text-foreground/40 text-[12px]">{i + 1}</td>
+                          <td className="px-4 py-2.5 font-semibold">{row.emp.first_name} {row.emp.last_name}</td>
+                          <td className="px-3 py-2.5 text-foreground/55 text-[12px]">{row.emp.department_name ?? "—"}</td>
+                          <td className="px-3 py-2.5 text-center">
+                            <span className={`font-bold tabular-nums ${onTarget ? "text-success" : "text-destructive"}`}>
+                              {row.records === 0 ? "—" : `${row.value}%`}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5 text-center text-foreground/50 text-[12px]">{row.records}</td>
+                          <td className="px-3 py-2.5 text-center">
+                            {row.records === 0 ? (
+                              <span className="text-[11px] text-foreground/40">No data</span>
+                            ) : onTarget ? (
+                              <span className="text-[11px] text-success font-semibold">✓ On target</span>
+                            ) : (
+                              <span className="text-[11px] text-destructive font-semibold">✗ Below target</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })()}
+      </section>
+
       {/* ── Cross-metric quick links ──────────────────────────────────── */}
       <section className="pt-8">
         <div className="rule-paper mb-6" />
@@ -489,5 +566,14 @@ export default function Metrics() {
       </section>
 
     </div>
+
+    <EmployeeSheet
+      emp={selectedEmp}
+      attendance={selectedEmp ? mockAttendance.filter((a: any) => a.employee_id === selectedEmp.id) : []}
+      credit={selectedEmp ? mockCredits.find((c: any) => c.employee_id === selectedEmp.id) : undefined}
+      open={!!selectedEmp}
+      onClose={() => setSelectedEmp(null)}
+    />
+    </>
   );
 }

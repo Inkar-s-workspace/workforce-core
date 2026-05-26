@@ -202,7 +202,7 @@ export default function Reports() {
         </Button>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Reports & Exports</h1>
-          <p className="text-sm text-muted-foreground">Download or print attendance and payroll data</p>
+          <p className="text-sm text-muted-foreground">Download or print attendance data</p>
         </div>
       </div>
 

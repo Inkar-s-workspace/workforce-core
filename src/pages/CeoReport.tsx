@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { mockDepartments, mockEmployees, mockAttendance, mockCredits } from "@/data/mockData";
+import { EmployeeSheet } from "@/components/EmployeeList";
+import type { Employee } from "@/types/attendance";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -150,7 +152,7 @@ function printCeoReport(
       ? "<p style='color:#27ae60;font-size:10px;margin-bottom:12px;'>✓ No employees with multiple missed punches this period.</p>"
       : tableHTML(["Employee", "Code", "Department", "Missed Clock-Ins", "Missed Clock-Outs", "Total Misses", "Est. Deduction"], flagged)}
 
-    <h2>Credit & Payroll Summary</h2>
+    <h2>Credit Summary</h2>
     ${tableHTML(
       ["Department", "Employees", "Initial Credits", "Deductions", "OT Bonuses", "Net Credits", "Avg Credit / Employee"],
       creditRows,
@@ -172,6 +174,7 @@ export default function CeoReport() {
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(String(now.getMonth() + 1));
   const [selectedYear,  setSelectedYear]  = useState(String(now.getFullYear()));
+  const [selectedEmp, setSelectedEmp]     = useState<Employee | null>(null);
 
   const period = `${MONTHS[parseInt(selectedMonth) - 1]} ${selectedYear}`;
 
@@ -316,7 +319,7 @@ export default function CeoReport() {
       { title: `CEO Report — ${period}`,           headers: ["Metric", "Value"],                                                    rows: kpisForPrint.map(k => [k.label, k.value]) },
       { title: "Department Performance",           headers: ["Department","Staff","Att. Records","Missed In","Missed Out","Punctuality","OT Records","Deductions","Net Credits"], rows: deptRows },
       { title: "Attendance Concerns",              headers: ["Employee","Code","Department","Missed In","Missed Out","Total","Est. Deduction"], rows: flaggedRows },
-      { title: "Credit & Payroll Summary",         headers: ["Department","Employees","Initial Credits","Deductions","OT Bonuses","Net Credits","Avg/Employee"], rows: [...creditRows, creditTotals] },
+      { title: "Credit Summary",                    headers: ["Department","Employees","Initial Credits","Deductions","OT Bonuses","Net Credits","Avg/Employee"], rows: [...creditRows, creditTotals] },
     ]
   );
 
@@ -334,7 +337,6 @@ export default function CeoReport() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold tracking-tight">CEO Report</h1>
-              <Badge variant="secondary" className="text-[10px] tracking-wide uppercase">Confidential</Badge>
             </div>
             <p className="text-sm text-muted-foreground">Full workforce attendance summary for executive review</p>
           </div>
@@ -523,7 +525,7 @@ export default function CeoReport() {
                 </thead>
                 <tbody>
                   {flaggedEmployees.map((x, i) => (
-                    <tr key={x.emp.id} className={`border-b last:border-0 ${i % 2 === 0 ? "" : "bg-muted/20"}`}>
+                    <tr key={x.emp.id} onClick={() => setSelectedEmp(x.emp)} className={`border-b last:border-0 cursor-pointer hover:bg-muted/40 transition-colors ${i % 2 === 0 ? "" : "bg-muted/20"}`}>
                       <td className="px-4 py-2.5 font-medium">{x.emp.first_name} {x.emp.last_name}</td>
                       <td className="px-3 py-2.5 text-muted-foreground text-xs">{x.emp.emp_code ?? "—"}</td>
                       <td className="px-3 py-2.5 text-muted-foreground text-xs">{x.emp.department_name ?? "—"}</td>
@@ -552,5 +554,13 @@ export default function CeoReport() {
         </p>
       </div>
     </div>
+
+    <EmployeeSheet
+      emp={selectedEmp}
+      attendance={selectedEmp ? mockAttendance.filter(a => a.employee_id === selectedEmp.id) : []}
+      credit={selectedEmp ? mockCredits.find(c => c.employee_id === selectedEmp.id) : undefined}
+      open={!!selectedEmp}
+      onClose={() => setSelectedEmp(null)}
+    />
   );
 }
