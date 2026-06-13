@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AttendanceFilter } from "@/types/attendance";
 import {
-  mockEmployees, mockAttendance, mockCredits, mockDepartments,
+  mockEmployees, mockAttendance, mockDepartments,
 } from "@/data/mockData";
 import StatsCards from "@/components/StatsCards";
 import AttendanceFilters from "@/components/AttendanceFilters";
@@ -80,7 +80,6 @@ const Index = () => {
 
   const employees   = mockEmployees;
   const attendance  = mockAttendance;
-  const credits     = mockCredits;
   const departments = mockDepartments;
 
   const [deptFilter,        setDeptFilter]        = useState<string | null>(null);
@@ -287,7 +286,6 @@ const Index = () => {
           <EmployeeList
             employees={filteredEmployees}
             attendance={attendance}
-            credits={credits}
             visibleCount={visibleCount}
             onSeeMore={() => setVisibleCount(filteredEmployees.length)}
             activeFilter={attendanceFilter}

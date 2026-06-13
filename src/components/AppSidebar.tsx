@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Building2, Home, Settings, Download, BookOpen, LogOut,
-  CalendarDays, BarChart3, ChevronDown, PanelLeftClose, PanelLeftOpen, FileBarChart2,
+  CalendarDays, BarChart3, ChevronDown, PanelLeftClose, PanelLeftOpen, FileBarChart2, Umbrella,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -21,13 +21,13 @@ const roleLabels: Record<string, string> = {
 };
 
 const METRIC_LINKS = [
+  { to: "/metrics/adherence",    label: "Shift adherence"   },
   { to: "/metrics/punctuality",  label: "Punctuality rate"  },
   { to: "/metrics/absenteeism",  label: "Absenteeism rate"  },
-  { to: "/metrics/adherence",    label: "Shift adherence"   },
   { to: "/metrics/overtime",     label: "Overtime rate"     },
 ];
 
-const METRICS_DEFAULT = "/metrics/punctuality";
+const METRICS_DEFAULT = "/metrics/adherence";
 
 export function AppSidebar() {
   const { state, toggleSidebar } = useSidebar();
@@ -168,6 +168,7 @@ export function AppSidebar() {
               {canViewReports && (
                 <NavItem to="/ceo-report" icon={FileBarChart2} label="CEO Report" collapsed={collapsed} />
               )}
+              <NavItem to="/leave" icon={Umbrella} label="Leave" collapsed={collapsed} />
               <NavItem to="/resources" icon={BookOpen} label="Resources" collapsed={collapsed} />
               <NavItem to="/settings" icon={Settings} label="Settings" collapsed={collapsed} />
             </SidebarMenu>

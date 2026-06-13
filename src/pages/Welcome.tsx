@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { mockEmployees, mockAttendance, mockCredits } from "@/data/mockData";
+import { mockEmployees, mockAttendance } from "@/data/mockData";
 import { EmployeeSheet } from "@/components/EmployeeList";
 import type { Employee } from "@/types/attendance";
 import {
@@ -463,7 +463,6 @@ export default function Welcome() {
     <EmployeeSheet
       emp={selectedEmp}
       attendance={selectedEmp ? mockAttendance.filter(a => a.employee_id === selectedEmp.id) : []}
-      credit={selectedEmp ? mockCredits.find(c => c.employee_id === selectedEmp.id) : undefined}
       open={!!selectedEmp}
       onClose={() => setSelectedEmp(null)}
     />

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Employee, AttendanceRecord, CreditBalance } from "@/types/attendance";
+import { Employee, AttendanceRecord } from "@/types/attendance";
 import type { AttendanceFilter } from "@/types/attendance";
 import { ChevronDown, ChevronRight, ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,6 @@ import {
 interface EmployeeListProps {
   employees: Employee[];
   attendance: AttendanceRecord[];
-  credits: CreditBalance[];
   visibleCount: number;
   onSeeMore: () => void;
   activeFilter?: AttendanceFilter;
@@ -128,10 +127,9 @@ function Avatar({ emp, size = "md" }: { emp: Employee; size?: "sm" | "md" | "lg"
 
 // ─── Employee detail sheet ────────────────────────────────────────────────────
 
-export function EmployeeSheet({ emp, attendance, credit, open, onClose }: {
+export function EmployeeSheet({ emp, attendance, open, onClose }: {
   emp: Employee | null;
   attendance: AttendanceRecord[];
-  credit: CreditBalance | undefined;
   open: boolean;
   onClose: () => void;
 }) {
@@ -145,7 +143,6 @@ export function EmployeeSheet({ emp, attendance, credit, open, onClose }: {
   const presentDays   = attendance.filter(a => !a.missed_clock_in && !a.missed_clock_out).length;
   const totalDays     = attendance.length;
   const attendanceRate = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 100;
-  const finalCredit   = credit?.final_credit ?? 1500;
   const hoursPercent  = Math.min(100, (totalHours / 180) * 100);
 
   return (
@@ -184,7 +181,6 @@ export function EmployeeSheet({ emp, attendance, credit, open, onClose }: {
           <TabsList className="mx-6 mt-4 mb-2 shrink-0">
             <TabsTrigger value="profile" className="flex-1">Profile</TabsTrigger>
             <TabsTrigger value="attendance" className="flex-1">Attendance</TabsTrigger>
-            <TabsTrigger value="credits" className="flex-1">Credits</TabsTrigger>
           </TabsList>
 
           {/* Profile tab */}
@@ -316,50 +312,6 @@ export function EmployeeSheet({ emp, attendance, credit, open, onClose }: {
             </ScrollArea>
           </TabsContent>
 
-          {/* Credits tab */}
-          <TabsContent value="credits" className="flex-1 min-h-0 mt-0">
-            <ScrollArea className="h-full px-6 pb-6">
-              <div className="space-y-4 pt-2">
-                <div className="rounded-md border border-border overflow-hidden divide-y divide-border">
-                  {[
-                    { label: "Initial credit",  value: `GH₵ ${credit?.initial_credit ?? 1500}`,  tone: "neutral", desc: "Base monthly allocation" },
-                    { label: "Deductions",      value: `−GH₵ ${credit?.deductions ?? 0}`,        tone: "warn",    desc: "Missed punch penalties" },
-                    { label: "Overtime bonus",  value: `+GH₵ ${credit?.overtime_credits ?? 0}`,  tone: "good",    desc: "Approved overtime credits" },
-                  ].map(item => (
-                    <div key={item.label} className="flex items-center justify-between px-4 py-3">
-                      <div>
-                        <p className="text-[13px] font-medium">{item.label}</p>
-                        <p className="text-[11px] text-foreground/55">{item.desc}</p>
-                      </div>
-                      <span className={`text-[13px] font-display font-bold tabular-nums
-                        ${item.tone === "warn" ? "text-destructive" : item.tone === "good" ? "text-success" : "text-foreground"}`}>
-                        {item.value}
-                      </span>
-                    </div>
-                  ))}
-                  <div className="flex items-center justify-between px-4 py-4 bg-foreground/3">
-                    <div>
-                      <p className="text-[13px] font-display font-bold">Final credit</p>
-                      <p className="text-[11px] text-foreground/55">Net balance this month</p>
-                    </div>
-                    <span className={`font-display text-[28px] font-bold tabular-nums
-                      ${finalCredit < 1300 ? "text-destructive" : finalCredit < 1500 ? "text-amc-yellow" : "text-foreground"}`}>
-                      GH₵ {finalCredit}
-                    </span>
-                  </div>
-                </div>
-                <div className="bg-foreground/3 border border-border rounded-md p-4 space-y-2">
-                  <div className="flex items-center justify-between text-[13px]">
-                    <span className="font-medium">Monthly hours vs target</span>
-                    <span className="text-foreground/55 text-[12px] tabular-nums">
-                      {totalHours.toFixed(1)}h / 180h
-                    </span>
-                  </div>
-                  <Progress value={Math.min(100, (totalHours / 180) * 100)} className="h-1.5" />
-                </div>
-              </div>
-            </ScrollArea>
-          </TabsContent>
         </Tabs>
       </SheetContent>
     </Sheet>
@@ -514,7 +466,7 @@ function EmployeeRow({ emp, todayRecord, totalHours, missedCount, onClick }: {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 const EmployeeList = ({
-  employees, attendance, credits, visibleCount, onSeeMore, activeFilter = "all",
+  employees, attendance, visibleCount, onSeeMore, activeFilter = "all",
 }: EmployeeListProps) => {
   const [selected, setSelected] = useState<Employee | null>(null);
 
@@ -527,7 +479,6 @@ const EmployeeList = ({
   const visibleEmployees   = sortedEmployees.slice(0, visibleCount);
   const hasMore            = sortedEmployees.length > visibleCount;
   const selectedAttendance = selected ? attendance.filter(a => a.employee_id === selected.id) : [];
-  const selectedCredit     = selected ? credits.find(c => c.employee_id === selected.id) : undefined;
   const isOvertimeFilter   = activeFilter === "overtime";
 
   return (
@@ -582,7 +533,6 @@ const EmployeeList = ({
       <EmployeeSheet
         emp={selected}
         attendance={selectedAttendance}
-        credit={selectedCredit}
         open={!!selected}
         onClose={() => setSelected(null)}
       />

@@ -468,7 +468,6 @@ export default function OvertimePanel() {
   const [profileOpen, setProfileOpen] = useState(false);
 
   const canApprove = ["manager", "department_head", "hr", "admin"].includes(role ?? "");
-  if (!canApprove) return null;
 
   const pending  = notifications.filter(n => n.status === "pending");
   const resolved = notifications.filter(n => n.status !== "pending");

@@ -44,3 +44,41 @@ export interface CreditBalance {
 }
 
 export type AttendanceFilter = "all" | "missed_clock_in" | "missed_clock_out" | "missed_both" | "overtime";
+
+export type LeaveType = "annual" | "sick" | "maternity" | "paternity" | "study" | "compassionate" | "casual";
+export type LeaveStatus = "approved" | "pending" | "rejected" | "cancelled";
+
+export interface LeaveRecord {
+  id: string;
+  employee_id: string;
+  employee_name: string;
+  emp_code: string;
+  department_id: string;
+  department_name: string;
+  position: string;
+  leave_type: LeaveType;
+  start_date: string;
+  end_date: string;
+  duration_days: number;
+  status: LeaveStatus;
+  reason: string;
+  applied_date: string;
+  approved_by?: string;
+  notes?: string;
+}
+
+export interface LeaveBalance {
+  employee_id: string;
+  employee_name: string;
+  emp_code: string;
+  department_id: string;
+  department_name: string;
+  position: string;
+  is_probation: boolean;
+  annual_entitlement: number;
+  annual_taken: number;
+  accumulated_carry_forward: number;
+  accumulated_holidays: number;
+  sick_entitlement: number;
+  sick_taken: number;
+}

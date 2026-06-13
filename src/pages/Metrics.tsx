@@ -22,7 +22,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine,
 } from "recharts";
-import { mockEmployees, mockAttendance, mockCredits } from "@/data/mockData";
+import { mockEmployees, mockAttendance } from "@/data/mockData";
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import { EmployeeSheet } from "@/components/EmployeeList";
 import type { Employee } from "@/types/attendance";
@@ -45,6 +45,17 @@ interface MetricDef {
 }
 
 const METRICS: Record<MetricSlug, MetricDef> = {
+  adherence: {
+    slug: "adherence",
+    title: "Shift adherence",
+    subtitle: "Shifts that were clocked in AND out correctly",
+    description:
+      "The strictest of the four: a shift only counts as 'adhered' if the person clocked in on time and clocked out at the expected end time.",
+    direction: "up_good",
+    target: 85,
+    targetLabel: "Target 85%",
+    unit: "percent",
+  },
   punctuality: {
     slug: "punctuality",
     title: "Punctuality rate",
@@ -65,17 +76,6 @@ const METRICS: Record<MetricSlug, MetricDef> = {
     direction: "down_good",
     target: 5,
     targetLabel: "Target ≤5%",
-    unit: "percent",
-  },
-  adherence: {
-    slug: "adherence",
-    title: "Shift adherence",
-    subtitle: "Shifts that were clocked in AND out correctly",
-    description:
-      "The strictest of the four: a shift only counts as 'adhered' if the person clocked in on time and clocked out at the expected end time.",
-    direction: "up_good",
-    target: 85,
-    targetLabel: "Target 85%",
     unit: "percent",
   },
   overtime: {
@@ -570,7 +570,6 @@ export default function Metrics() {
     <EmployeeSheet
       emp={selectedEmp}
       attendance={selectedEmp ? mockAttendance.filter((a: any) => a.employee_id === selectedEmp.id) : []}
-      credit={selectedEmp ? mockCredits.find((c: any) => c.employee_id === selectedEmp.id) : undefined}
       open={!!selectedEmp}
       onClose={() => setSelectedEmp(null)}
     />

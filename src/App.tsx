@@ -18,6 +18,7 @@ import Metrics from "./pages/Metrics";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import CeoReport from "./pages/CeoReport";
+import Leave from "./pages/Leave";
 
 const queryClient = new QueryClient();
 
@@ -46,9 +47,10 @@ const App = () => (
                   <Route path="/resources" element={<Resources />} />
                   <Route path="/roster" element={<Roster />} />
                   <Route path="/ceo-report" element={<CeoReport />} />
+                  <Route path="/leave" element={<Leave />} />
 
                   {/* Metrics — /metrics redirects to first metric, /metrics/:slug shows that one */}
-                  <Route path="/metrics" element={<Navigate to="/metrics/punctuality" replace />} />
+                  <Route path="/metrics" element={<Navigate to="/metrics/adherence" replace />} />
                   <Route path="/metrics/:slug" element={<Metrics />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
